@@ -4,12 +4,14 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Properties;
 
+import org.apache.commons.lang.StringUtils;
+
 import com.netflix.astyanax.Keyspace;
-import com.netflix.cassandra.KeyspaceFactory;
-import com.netflix.cassandra.NFAstyanaxManager;
+import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
+import com.netflix.astyanax.thrift.ThriftClusterImpl;
+import com.netflix.cassandra.NetflixConnectionPoolMonitor;
 import com.netflix.jmeter.sampler.Connection;
 import com.netflix.jmeter.sampler.Operation;
-import com.netflix.library.NFLibraryManager;
 
 public class AstyanaxConnection extends Connection
 {
@@ -32,8 +34,9 @@ public class AstyanaxConnection extends Connection
                 File propFile = new File("cassandra.properties");
                 if (propFile.exists())
                     config.load(new FileReader(propFile));
-                NFLibraryManager.initLibrary(NFAstyanaxManager.class, config, true, false);
-                keyspace = KeyspaceFactory.openKeyspace(getClusterName(), getKeyspaceName());
+                ThriftClusterImpl cluster = loadProps();
+                cluster.start();
+                keyspace = cluster.getKeyspace(getKeyspaceName());
                 return keyspace;
             }
             catch (Exception e)
@@ -41,6 +44,20 @@ public class AstyanaxConnection extends Connection
                 throw new RuntimeException(e);
             }
         }
+    }
+
+    public ThriftClusterImpl loadProps()
+    {
+        ConnectionPoolConfigurationImpl config = new ConnectionPoolConfigurationImpl(getClusterName(), null);
+        config.setPort(port);
+        config.setSocketTimeout(30000);
+        config.setMaxTimeoutWhenExhausted(200);
+        config.setIsDebugEnabled(true);
+        String stringPort = com.netflix.jmeter.properties.Properties.instance.cassandra.getMaxConnsPerHost();
+        config.setMaxConnsPerHost(Integer.parseInt(stringPort));
+        config.setConnectionPoolMonitor(new NetflixConnectionPoolMonitor(getClusterName() + ":" + getKeyspaceName(), config));
+        config.setSeeds(StringUtils.join(endpoints, ","));
+        return new ThriftClusterImpl(config);
     }
 
     public Operation newOperation()

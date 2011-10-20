@@ -1,21 +1,19 @@
-DESCRIPTION
+DESCRIPTION:
 Cassandra JMeter plugin supports all the jmeter functions and variable hence making it a right fit to generate data into cassandra. You can also validate the data and measure performance/throuhput of a cassandra cluster.
 
-DETAILS
+DETAILS:
 
-
-MAVEN
+MAVEN:
 JMeter plugin needs the following jar's to be present for it to compile, but they are not published in the public repo hence do the following.
 
 mvn install:install-file -DgroupId=org.apache.jmeter -DartifactId=ApacheJMeter_core -Dversion=2.5.1 -Dfile={Your base Dir}/lib/ApacheJMeter_core.jar -Dpackaging=jar -DgeneratePom=true
 mvn install:install-file -DgroupId=com.netflix -DartifactId=astyanax -Dversion=1.22.0 -Dfile={Your base Dir}/lib/astyanax-1.22.0.jar -Dpackaging=jar -DgeneratePom=true
 
 
-AUTHOR
-
+AUTHOR:
 Vijay Parthasarathy (vparthasarathy@netflix.com)
 
-LICENSE
+LICENSE:
 
 Copyright 2011 Netflix, Inc.
 
