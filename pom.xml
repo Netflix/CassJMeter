@@ -3,15 +3,9 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.netflix</groupId>
 	<artifactId>CassJMeter</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<packaging>jar</packaging>
+	<version>0.1-SNAPSHOT</version>
 	<dependencies>
-		<dependency>
-			<groupId>commons-io</groupId>
-			<artifactId>commons-io</artifactId>
-			<version>20030203.000550</version>
-			<type>jar</type>
-			<scope>compile</scope>
-		</dependency>
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>

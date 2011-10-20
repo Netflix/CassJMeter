@@ -3,7 +3,7 @@ package com.netflix.jmeter.connections.thrift;
 import java.util.Collections;
 import java.util.List;
 
-import com.google.inject.internal.Lists;
+import com.google.common.collect.Lists;
 import com.netflix.jmeter.properties.Properties;
 import com.netflix.jmeter.sampler.Connection;
 import com.netflix.jmeter.sampler.Operation;
