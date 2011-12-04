@@ -24,7 +24,7 @@ public class Schema
     {
         this.client = client;
         this.ksName = Connection.getKeyspaceName();
-        this.cfName = Connection.getColumnFamilyName();
+        this.cfName = Properties.instance.schema.getColumn_family();
     }
 
     public void createKeyspace() throws Exception
@@ -69,7 +69,6 @@ public class Schema
     {
         SchemaProperties prop = Properties.instance.schema;
         CfDef cfd = new CfDef(ksName, cfName);
-        cfd.setMemtable_throughput_in_mb(128);
         cfd.setKey_cache_size(1.0);
         cfd.setComparator_type(prop.getComparator_type());
         cfd.setKey_validation_class(prop.getKey_validation_class());
@@ -77,8 +76,6 @@ public class Schema
         cfd.setKey_cache_size(1D);
         cfd.setRow_cache_provider(prop.getRow_cache_provider());
         cfd.setRow_cache_size(Double.parseDouble(prop.getRows_cached()));
-        cfd.setMemtable_flush_after_mins(Integer.parseInt(prop.getMemtable_flush_after()));
-        cfd.setMemtable_throughput_in_mb(Integer.parseInt(prop.getMemtable_throughput()));
         return cfd;
     }
 }

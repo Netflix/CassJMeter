@@ -6,7 +6,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.cassandra.config.ConfigurationException;
 import org.apache.cassandra.db.ColumnFamilyType;
 import org.apache.cassandra.thrift.TokenRange;
 import org.apache.cassandra.utils.FBUtilities;
@@ -122,7 +121,7 @@ public abstract class Connection
                 connection = FBUtilities.construct(Properties.instance.cassandra.getClientType(), "Creating Connection");
                 return connection;
             }
-            catch (ConfigurationException e)
+            catch (Exception e)
             {
                 throw new RuntimeException(e);
             }
@@ -139,15 +138,10 @@ public abstract class Connection
         return Properties.instance.cassandra.getClusterName();
     }
 
-    public static String getColumnFamilyName()
-    {
-        return Properties.instance.cassandra.getColumnFamily();
-    }
-
     public static ColumnFamilyType getColumnFamilyType()
     {
         return ColumnFamilyType.Standard;
     }
 
-    public abstract Operation newOperation();
+    public abstract Operation newOperation(String columnName);
 }

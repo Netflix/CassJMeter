@@ -1,6 +1,8 @@
 package com.netflix.jmeter.sampler;
 
-public class PutSampler extends AbstractSampler
+import java.nio.ByteBuffer;
+
+public class CompsitePutSampler extends AbstractSampler
 {
     private static final long serialVersionUID = 6393722552275749483L;
     public static final String VALUE = "VALUE";
@@ -11,13 +13,13 @@ public class PutSampler extends AbstractSampler
     {
         Operation ops = Connection.getInstace().newOperation(getColumnFamily());
         setSerializers(ops);
-        return ops.put(getKey(), getColumnName(), getValue());
+        return ops.putComposite(getProperty(KEY).getStringValue(), getProperty(COLUMN_NAME).getStringValue(), getValue());
     }
 
-    public Object getValue()
+    public ByteBuffer getValue()
     {
         String text = getProperty(VALUE).getStringValue();
-        return convert(text, getVSerializerType());
+        return serialier(getVSerializerType()).fromString(text);
     }
 
     public void setValue(String text)

@@ -21,7 +21,7 @@ import org.apache.cassandra.thrift.ColumnPath;
 
 import com.google.common.collect.Lists;
 import com.netflix.jmeter.connections.thrift.ThriftOperation;
-import com.netflix.jmeter.sampler.AbstractCassandraSampler.ResponseData;
+import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.OperationException;
 
 public class FatClientOperation extends ThriftOperation
@@ -31,7 +31,7 @@ public class FatClientOperation extends ThriftOperation
 
     public FatClientOperation(String writeConsistency, String readConsistency, String ks, String cf)
     {
-        super(null, writeConsistency, readConsistency);
+        super(null, writeConsistency, readConsistency, cf);
         this.cf = cf;
         this.ks = ks;
     }

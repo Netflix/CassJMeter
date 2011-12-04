@@ -20,11 +20,13 @@ public class Counter
 {
     private Client client;
     private ConsistencyLevel cl;
+    private final String cfName;
 
-    public Counter(Cassandra.Client client, ConsistencyLevel cl)
+    public Counter(Cassandra.Client client, ConsistencyLevel cl, String cfName)
     {
         this.client = client;
         this.cl = cl;
+        this.cfName = cfName;
     }
 
     public void add(ByteBuffer rawKey, List<CounterColumn> columns) throws Exception
@@ -43,7 +45,7 @@ public class Counter
         sliceRange.setReversed(false).setCount(order);
         // initialize SlicePredicate with existing SliceRange
         SlicePredicate predicate = new SlicePredicate().setSlice_range(sliceRange);
-        ColumnParent parent = new ColumnParent(ThriftConnection.getColumnFamilyName());
+        ColumnParent parent = new ColumnParent(cfName);
         return client.get_slice(keyBuffer, parent, predicate, cl);
     }
 
@@ -56,7 +58,7 @@ public class Counter
             ColumnOrSuperColumn cosc = new ColumnOrSuperColumn().setCounter_column(c);
             mutations.add(new Mutation().setColumn_or_supercolumn(cosc));
         }
-        mutationMap.put(ThriftConnection.getColumnFamilyName(), mutations);
+        mutationMap.put(cfName, mutations);
         return mutationMap;
     }
 }

@@ -76,11 +76,11 @@ public class FatClientConnection extends Connection
     }
 
     @Override
-    public Operation newOperation()
+    public Operation newOperation(String columnName)
     {
         return new FatClientOperation(Properties.instance.cassandra.getWriteConsistency(), 
                 Properties.instance.cassandra.getReadConsistency(), 
                 Properties.instance.cassandra.getKeyspace(), 
-                Properties.instance.cassandra.getColumnFamily());
+                columnName);
     }
 }

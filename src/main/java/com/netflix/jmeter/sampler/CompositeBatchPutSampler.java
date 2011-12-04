@@ -4,7 +4,7 @@ import java.util.Map;
 
 import com.google.common.collect.Maps;
 
-public class BatchPutSampler extends AbstractSampler
+public class CompositeBatchPutSampler extends AbstractSampler
 {
     private static final long serialVersionUID = 6393722552275749483L;
     public static final String NAME_AND_VALUE = "NAME_AND_VALUE";

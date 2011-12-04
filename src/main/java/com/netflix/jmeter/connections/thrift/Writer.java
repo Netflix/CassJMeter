@@ -19,18 +19,20 @@ public class Writer
 {
     private CClient client;
     private ConsistencyLevel cl;
+    private final String cfName;
     List<Column> columns = Lists.newArrayList();
 
-    public Writer(CClient client, ConsistencyLevel cl)
+    public Writer(CClient client, ConsistencyLevel cl, String cfName)
     {
         this.client = client;
         this.cl = cl;
+        this.cfName = cfName;
     }
 
     public void insert(ByteBuffer key, ByteBuffer name, ByteBuffer value) throws Exception
     {
         Column col = new Column(name).setValue(value).setTimestamp(System.nanoTime());
-        ColumnParent cp = new ColumnParent(ThriftConnection.getColumnFamilyName());
+        ColumnParent cp = new ColumnParent(cfName);
         client.insert(key, cp, col, cl);
     }
 
@@ -58,7 +60,7 @@ public class Writer
             ColumnOrSuperColumn column = new ColumnOrSuperColumn().setColumn(c);
             mutations.add(new Mutation().setColumn_or_supercolumn(column));
         }
-        mutationMap.put(ThriftConnection.getColumnFamilyName(), mutations);
+        mutationMap.put(cfName, mutations);
         return mutationMap;
     }
 }

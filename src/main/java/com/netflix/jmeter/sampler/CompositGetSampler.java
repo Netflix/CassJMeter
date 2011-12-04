@@ -1,6 +1,6 @@
 package com.netflix.jmeter.sampler;
 
-public class GetSampler extends AbstractSampler
+public class CompositGetSampler extends AbstractSampler
 {
     private static final long serialVersionUID = -2103499609822848595L;
 
@@ -8,6 +8,6 @@ public class GetSampler extends AbstractSampler
     {
         Operation ops = Connection.getInstace().newOperation(getColumnFamily());
         setSerializers(ops);
-        return ops.get(getKey(), getColumnName());
+        return ops.getCompsote(getProperty(KEY).getStringValue(), getProperty(COLUMN_NAME).getStringValue());
     }
 }

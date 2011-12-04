@@ -9,13 +9,14 @@ import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.NotFoundException;
 
 import com.netflix.astyanax.serializers.AbstractSerializer;
-import com.netflix.jmeter.sampler.AbstractCassandraSampler.ResponseData;
+import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.Operation;
 import com.netflix.jmeter.sampler.OperationException;
 import com.netflix.jmeter.utils.CClient;
 
 public class ThriftOperation implements Operation
 {
+    private final String cfName;
     protected ConsistencyLevel wConsistecy;
     protected ConsistencyLevel rConsistecy;
     protected AbstractSerializer colser;
@@ -23,11 +24,12 @@ public class ThriftOperation implements Operation
     protected AbstractSerializer kser;
     private CClient client;
 
-    public ThriftOperation(CClient client, String writeConsistency, String readConsistency)
+    public ThriftOperation(CClient client, String writeConsistency, String readConsistency, String cfName)
     {
         this.client = client;
         this.wConsistecy = ConsistencyLevel.valueOf(writeConsistency);
         this.rConsistecy = ConsistencyLevel.valueOf(readConsistency);
+        this.cfName = cfName;
     }
 
     @Override
@@ -46,7 +48,7 @@ public class ThriftOperation implements Operation
         ByteBuffer val = valser.toByteBuffer(value);
         try
         {
-            new Writer(client, wConsistecy).insert(rKey, name, val);
+            new Writer(client, wConsistecy, cfName).insert(rKey, name, val);
         }
         catch (Exception e)
         {
@@ -58,7 +60,7 @@ public class ThriftOperation implements Operation
     @Override
     public ResponseData batchMutate(Object key, Map<?, ?> nv) throws OperationException
     {
-        Writer bm = new Writer(client, wConsistecy);
+        Writer bm = new Writer(client, wConsistecy, cfName);
         try
         {
             for (Map.Entry<?, ?> entity : nv.entrySet())
@@ -85,7 +87,7 @@ public class ThriftOperation implements Operation
         int bytes = 0;
         try
         {
-            byte[] value = new Reader(client, rConsistecy).get(rKey, name).getColumn().getValue();
+            byte[] value = new Reader(client, rConsistecy, cfName).get(rKey, name).getColumn().getValue();
             Object val = valser.fromBytes(value);
             response = val.toString();
             bytes = value.length;
@@ -112,7 +114,7 @@ public class ThriftOperation implements Operation
         try
         {
             long s = System.currentTimeMillis();
-            List<ColumnOrSuperColumn> reader = new Reader(client, rConsistecy).getSlice(key, start, end, count, reversed);
+            List<ColumnOrSuperColumn> reader = new Reader(client, rConsistecy, cfName).getSlice(key, start, end, count, reversed);
             for (ColumnOrSuperColumn col : reader)
             {
                 byte[] name = col.getColumn().getName();
@@ -131,5 +133,26 @@ public class ThriftOperation implements Operation
             throw new OperationException(e);
         }
         return new ResponseData(response.toString(), bytes, client.host);
+    }
+
+    @Override
+    public ResponseData putComposite(String key, String colName, ByteBuffer vbb) throws OperationException
+    {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public ResponseData batchCompositeMutate(String key, Map<String, ByteBuffer> nv) throws OperationException
+    {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public ResponseData getCompsote(String stringValue, String stringValue2) throws OperationException
+    {
+        // TODO Auto-generated method stub
+        return null;
     }
 }

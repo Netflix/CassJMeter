@@ -8,7 +8,6 @@ import org.apache.jmeter.testbeans.TestBean;
 public class CassandraProperties extends ConfigTestElement implements TestBean
 {
     private static final long serialVersionUID = 468255622613306730L;
-    private static final String ColumnFamily = "columnFamily";
     private static final String Keyspace = "keyspace";
     private static final String ClusterName = "clusterName";
     private static final String ReadConsistency = "readConsistency";
@@ -35,16 +34,6 @@ public class CassandraProperties extends ConfigTestElement implements TestBean
     public void setClientType(String clientType)
     {
         setProperty(ClientType, clientType);
-    }
-
-    public String getColumnFamily()
-    {
-        return getPropertyAsString(ColumnFamily);
-    }
-
-    public void setColumnFamily(String columnFamily)
-    {
-        setProperty(ColumnFamily, columnFamily);
     }
 
     public String getKeyspace()
@@ -111,7 +100,6 @@ public class CassandraProperties extends ConfigTestElement implements TestBean
     {
         prop.put("jmeter.cluster", getClusterName());
         prop.put("jmeter.keyspace", getKeyspace());
-        prop.put("jmeter.column_family", getColumnFamily());
         prop.put(prefixPropertyName(".astyanax.writeConsistency"), getWriteConsistency());
         prop.put(prefixPropertyName(".astyanax.servers"), getCassandraServers());
         prop.put(prefixPropertyName(".astyanax.readConsistency"), getReadConsistency());

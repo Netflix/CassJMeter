@@ -12,10 +12,10 @@ public class SchemaProperties extends ConfigTestElement implements TestBean
     private static final String default_validation_class = "default_validation_class";
     private static final String validator = "validator";
     private static final String rows_cached = "rows_cached";
+    private static final String keys_cached = "keys_cached";
     private static final String row_cache_provider = "row_cache_provider";
     private static final String read_repair_chance = "read_repair_chance";
-    private static final String memtable_flush_after = "memtable_flush_after";
-    private static final String memtable_throughput = "memtable_throughput";
+    private static final String column_family = "column_family";
 
     public SchemaProperties()
     {
@@ -61,6 +61,16 @@ public class SchemaProperties extends ConfigTestElement implements TestBean
     {
         setProperty(default_validation_class, val);
     }
+    
+    public String getKeys_cached()
+    {
+        return getPropertyAsString(keys_cached);
+    }
+
+    public void setKeys_cached(String val)
+    {
+        setProperty(keys_cached, val);
+    }
 
     public String getRows_cached()
     {
@@ -82,26 +92,6 @@ public class SchemaProperties extends ConfigTestElement implements TestBean
         setProperty(row_cache_provider, val);
     }
 
-    public String getMemtable_flush_after()
-    {
-        return getPropertyAsString(memtable_flush_after);
-    }
-
-    public void setMemtable_flush_after(String val)
-    {
-        setProperty(memtable_flush_after, val);
-    }
-
-    public String getMemtable_throughput()
-    {
-        return getPropertyAsString(memtable_throughput);
-    }
-
-    public void setMemtable_throughput(String val)
-    {
-        setProperty(memtable_throughput, val);
-    }
-
     public String getRead_repair_chance()
     {
         return getPropertyAsString(read_repair_chance);
@@ -121,4 +111,15 @@ public class SchemaProperties extends ConfigTestElement implements TestBean
     {
         setProperty(comparator_type, val);
     }
+    
+    public String getColumn_family()
+    {
+        return getPropertyAsString(column_family);
+    }
+
+    public void setColumn_family(String val)
+    {
+        setProperty(column_family, val);
+    }
+    
 }

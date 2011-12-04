@@ -33,10 +33,11 @@ public class ThriftConnection extends Connection
     };
 
     @Override
-    public Operation newOperation()
+    public Operation newOperation(String cfName)
     {
         return new ThriftOperation(clients.get(), 
                 Properties.instance.cassandra.getWriteConsistency(), 
-                Properties.instance.cassandra.getReadConsistency());
+                Properties.instance.cassandra.getReadConsistency(),
+                cfName);
     }
 }

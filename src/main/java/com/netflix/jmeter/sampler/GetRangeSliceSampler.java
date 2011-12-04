@@ -1,6 +1,6 @@
 package com.netflix.jmeter.sampler;
 
-public class GetRangeSliceSampler extends AbstractCassandraSampler
+public class GetRangeSliceSampler extends AbstractSampler
 {
     private static final long serialVersionUID = -8566773644299382213L;
     public static final String START_COLUMN_NAME = "START_COLUMN_NAME";
@@ -10,7 +10,7 @@ public class GetRangeSliceSampler extends AbstractCassandraSampler
 
     public ResponseData execute() throws OperationException
     {
-        Operation ops = Connection.getInstace().newOperation();
+        Operation ops = Connection.getInstace().newOperation(getColumnFamily());
         setSerializers(ops);
         return ops.rangeSlice(getKey(), getStartName(), getEndName(), isReverse(), getCount());
     }
