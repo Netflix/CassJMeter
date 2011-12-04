@@ -60,8 +60,9 @@ public class AstyanaxConnection extends Connection
         return new ThriftClusterImpl(config);
     }
 
-    public Operation newOperation()
+    @Override
+    public Operation newOperation(String columnName)
     {
-        return new AstyanaxOperation();
+        return new AstyanaxOperation(columnName);
     }
 }
