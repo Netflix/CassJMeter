@@ -4,6 +4,9 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
 
+import org.apache.cassandra.utils.Hex;
+import org.apache.cassandra.utils.Pair;
+
 import com.netflix.astyanax.ColumnListMutation;
 import com.netflix.astyanax.ColumnMutation;
 import com.netflix.astyanax.MutationBatch;
@@ -16,6 +19,7 @@ import com.netflix.astyanax.model.ColumnFamily;
 import com.netflix.astyanax.model.ColumnList;
 import com.netflix.astyanax.serializers.AbstractSerializer;
 import com.netflix.astyanax.serializers.ByteBufferSerializer;
+import com.netflix.astyanax.serializers.BytesArraySerializer;
 import com.netflix.astyanax.util.RangeBuilder;
 import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.Operation;
@@ -51,7 +55,8 @@ public class AstyanaxOperation implements Operation
         m.withRow(cfs, key).putColumn(colName, value, valser, null);
         try
         {
-            return new ResponseData("", 0, m.execute());
+            OperationResult<Void> result = m.execute();
+            return new ResponseData("", 0, result.getHost().getHostName(), key, colName, value);
         }
         catch (ConnectionException e)
         {
@@ -69,7 +74,8 @@ public class AstyanaxOperation implements Operation
             ByteBuffer bbKey = sp.keyAsByteBuffer(key);
             ColumnFamily columnFamily = new ColumnFamily(cfName, ByteBufferSerializer.get(), ByteBufferSerializer.get());
             ColumnMutation mutation = AstyanaxConnection.instance.keyspace().prepareColumnMutation(columnFamily, bbKey, bbName);
-            return new ResponseData("", 0, mutation.putValue(value, null).execute());
+            OperationResult<Void> result = mutation.putValue(value, null).execute();
+            return new ResponseData("", 0, result.getHost().getHostName(), key, colName, value);
         }
         catch (Exception e)
         {
@@ -93,7 +99,8 @@ public class AstyanaxOperation implements Operation
             cf.putColumn(entry.getKey(), entry.getValue(), valser, null);
         try
         {
-            return new ResponseData("", 0, m.execute());
+            OperationResult<Void> result = m.execute();
+            return new ResponseData("", 0, result.getHost().getHostName(), key, nv);
         }
         catch (ConnectionException e)
         {
@@ -124,7 +131,7 @@ public class AstyanaxOperation implements Operation
             throw new OperationException(e);
         }
 
-        return new ResponseData(response.toString(), bytes, opResult);
+        return new ResponseData(response.toString(), bytes, opResult.getHost().getHostName(), rkey, colName, null);
     }
 
     @Override
@@ -153,7 +160,7 @@ public class AstyanaxOperation implements Operation
         {
             throw new OperationException(e);
         }
-        return new ResponseData(response.toString(), bytes, opResult);
+        return new ResponseData(response.toString(), bytes, opResult.getHost().getHostName(), key, colName, null);
     }
 
     @Override
@@ -173,7 +180,7 @@ public class AstyanaxOperation implements Operation
             while (it.hasNext())
             {
                 Column<?> col = (Column<?>) it.next();
-                String key = col.getName().toString();
+                String key = SystemUtils.convertToString(colSer, col.getRawName().array());
                 bytes += key.getBytes().length;
                 String value = SystemUtils.convertToString(valser, col.getByteArrayValue());
                 bytes += col.getByteBufferValue().capacity();
@@ -189,7 +196,7 @@ public class AstyanaxOperation implements Operation
         {
             throw new OperationException(e);
         }
-        return new ResponseData(response.toString(), bytes, opResult);
+        return new ResponseData(response.toString(), bytes, opResult.getHost().getHostName(), rKey, Pair.create(startColumn, endColumn), null);
     }
 
     @Override

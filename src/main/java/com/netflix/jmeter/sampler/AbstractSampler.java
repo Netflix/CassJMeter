@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.apache.cassandra.utils.Hex;
 import org.apache.jmeter.samplers.Entry;
 import org.apache.jmeter.samplers.SampleResult;
 
@@ -107,6 +108,10 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
             // TODO fix it.
             return text;
         }
+        else if (kSerializerType.equals("BytesArraySerializer"))
+        {
+            return Hex.hexToBytes(text);
+        }
         return serializers.get(kSerializerType).fromString(text);
     }
 
@@ -198,7 +203,8 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
             sr.setLatency(response.latency);
             sr.setSuccessful(true);
             sr.setResponseCodeOK();
-            sr.setResponseHeaders(response.header);
+            sr.setResponseHeaders(response.request);
+            //sr.setRequestHeaders(response.request);
         }
         catch (Exception ex)
         {
@@ -207,7 +213,7 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         }
         finally
         {
-            sr.setResponseMessage(message);
+            sr.setResponseData(message);
             sr.sampleEnd();
             if (sr.getLatency() == 0)
                 sr.setLatency(System.currentTimeMillis() - start);
@@ -221,7 +227,7 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
     {
         public final String response;
         public final int size;
-        public String header = "";
+        public String request = "";
         public long latency = 0;
         private String EXECUTED_ON = "Executed on: ";
         private String ROW_KEY = "Row Key: ";
@@ -234,7 +240,7 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
             this.size = size;
             if (null != result)
             {
-                this.header = "Executed on:" + result.getHost();
+                this.request = "Executed on:" + result.getHost();
                 this.latency = result.getLatency();
             }
         }
@@ -243,7 +249,7 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         {
             this.response = response;
             this.size = size;
-            this.header = "Executed on: " + host;
+            this.request = "Executed on: " + host;
         }
 
         public ResponseData(String response, int size, String host, Object key, Object cn, Object value)
@@ -254,8 +260,26 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
             buff.append(EXECUTED_ON).append(host).append(SystemUtils.NEW_LINE);
             buff.append(ROW_KEY).append(key).append(SystemUtils.NEW_LINE);
             buff.append(CN).append(cn).append(SystemUtils.NEW_LINE);
-            buff.append(CV).append(value).append(SystemUtils.NEW_LINE);
-            this.header = buff.toString();
+            if (value != null)
+            {
+                buff.append(CV).append(value).append(SystemUtils.NEW_LINE);
+            }
+            this.request = buff.toString();
+        }
+
+        public ResponseData(String response, int size, String host, Object key, Map<?, ?> nv)
+        {
+            this.response = response;
+            this.size = size;
+            StringBuffer buff = new StringBuffer();
+            buff.append(EXECUTED_ON).append(host).append(SystemUtils.NEW_LINE);
+            buff.append(ROW_KEY).append(key).append(SystemUtils.NEW_LINE);
+            for (java.util.Map.Entry<?, ?> entry : nv.entrySet())
+            {
+                buff.append(CN).append(entry.getKey()).append(SystemUtils.NEW_LINE);
+                buff.append(CV).append(entry.getValue()).append(SystemUtils.NEW_LINE);
+            }
+            this.request = buff.toString();
         }
     }
 
