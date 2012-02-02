@@ -1,5 +1,10 @@
 package com.netflix.jmeter.utils;
 
+import org.apache.cassandra.utils.Hex;
+
+import com.netflix.astyanax.serializers.AbstractSerializer;
+import com.netflix.astyanax.serializers.BytesArraySerializer;
+
 public class SystemUtils
 {
     public static final String NEW_LINE = System.getProperty("line.separator");
@@ -18,5 +23,15 @@ public class SystemUtils
         return result.toString();
     }
     
+    
+    public static String convertToString(AbstractSerializer ser, byte[] bytes)
+    {
+        String value;
+        if (ser instanceof BytesArraySerializer)
+            value = Hex.bytesToHex(bytes);
+        else
+            value = ser.fromBytes(bytes).toString();
+        return value;
+    }
     
 }

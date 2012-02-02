@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import com.netflix.jmeter.connections.thrift.ThriftOperation;
 import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.OperationException;
+import com.netflix.jmeter.utils.SystemUtils;
 
 public class FatClientOperation extends ThriftOperation
 {
@@ -103,7 +104,8 @@ public class FatClientOperation extends ThriftOperation
             {
                 for (IColumn col : cf.getSortedColumns())
                 {
-                    response.append(colser.fromByteBuffer(col.name())).append(":").append(valser.fromByteBuffer(col.value()));
+                    String value = SystemUtils.convertToString(valser, col.value().array());
+                    response.append(colser.fromByteBuffer(col.name())).append(":").append(value);
                     bytes += col.name().capacity();
                     bytes += col.value().capacity();
                 }
@@ -140,7 +142,8 @@ public class FatClientOperation extends ThriftOperation
             {
                 for (IColumn col : cf.getSortedColumns())
                 {
-                    response.append(colser.fromByteBuffer(col.name())).append(":").append(valser.fromByteBuffer(col.value()));
+                    String value = SystemUtils.convertToString(valser, col.value().array());
+                    response.append(colser.fromByteBuffer(col.name())).append(":").append(value);
                     bytes += col.name().capacity();
                     bytes += col.value().capacity();
                 }

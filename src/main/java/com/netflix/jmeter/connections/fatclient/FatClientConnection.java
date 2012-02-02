@@ -38,8 +38,8 @@ public class FatClientConnection extends Connection
         YamlUpdater updater = new YamlUpdater("cassandra.yaml");
         updater.update("listen_address", null);
         updater.update("rpc_address", null);
-        updater.update("storage_port", 7101);
-        updater.update("rpc_port", port);
+        updater.update("storage_port", new Integer(7101));
+        updater.update("rpc_port", new Integer(port));
         updater.update("cluster_name", Properties.instance.cassandra.getClusterName());
         updater.update("endpoint_snitch", Properties.instance.fatclient.getEndpoint_Snitch());
         updater.setSeeds(endpoints);

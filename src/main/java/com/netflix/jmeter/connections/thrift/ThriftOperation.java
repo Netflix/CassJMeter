@@ -13,6 +13,7 @@ import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.Operation;
 import com.netflix.jmeter.sampler.OperationException;
 import com.netflix.jmeter.utils.CClient;
+import com.netflix.jmeter.utils.SystemUtils;
 
 public class ThriftOperation implements Operation
 {
@@ -88,8 +89,7 @@ public class ThriftOperation implements Operation
         try
         {
             byte[] value = new Reader(client, rConsistecy, cfName).get(rKey, name).getColumn().getValue();
-            Object val = valser.fromBytes(value);
-            response = val.toString();
+            response = SystemUtils.convertToString(valser, value);
             bytes = value.length;
         }
         catch (NotFoundException e)
@@ -121,7 +121,8 @@ public class ThriftOperation implements Operation
                 bytes += name.length;
                 byte[] value = col.getColumn().getValue();
                 bytes += value.length;
-                response.append(colser.fromBytes(name).toString()).append(":").append(valser.fromBytes(value).toString()).append("\n");
+                String valueString = SystemUtils.convertToString(valser, value);
+                response.append(colser.fromBytes(name).toString()).append(":").append(valueString).append("\n");
             }
         }
         catch (NotFoundException e)
@@ -151,6 +152,13 @@ public class ThriftOperation implements Operation
 
     @Override
     public ResponseData getCompsote(String stringValue, String stringValue2) throws OperationException
+    {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    @Override
+    public ResponseData delete(Object rkey, Object colName) throws OperationException
     {
         // TODO Auto-generated method stub
         return null;
