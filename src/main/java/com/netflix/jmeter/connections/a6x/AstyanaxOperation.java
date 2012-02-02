@@ -4,8 +4,6 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
 
-import org.apache.cassandra.utils.Hex;
-
 import com.netflix.astyanax.ColumnListMutation;
 import com.netflix.astyanax.ColumnMutation;
 import com.netflix.astyanax.MutationBatch;
@@ -18,7 +16,6 @@ import com.netflix.astyanax.model.ColumnFamily;
 import com.netflix.astyanax.model.ColumnList;
 import com.netflix.astyanax.serializers.AbstractSerializer;
 import com.netflix.astyanax.serializers.ByteBufferSerializer;
-import com.netflix.astyanax.serializers.BytesArraySerializer;
 import com.netflix.astyanax.util.RangeBuilder;
 import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.Operation;
