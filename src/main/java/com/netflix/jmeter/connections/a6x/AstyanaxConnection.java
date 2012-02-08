@@ -1,5 +1,7 @@
 package com.netflix.jmeter.connections.a6x;
 
+import java.io.File;
+import java.io.FileReader;
 import java.util.Properties;
 
 import org.apache.commons.lang.StringUtils;
@@ -32,13 +34,22 @@ public class AstyanaxConnection extends Connection
                 return keyspace;
             try
             {
+                
+                com.netflix.jmeter.properties.Properties.instance.cassandra.addProperties(config);
+                File propFile = new File("cassandra.properties");
+                if (propFile.exists())
+                    config.load(new FileReader(propFile));
+                
                 AstyanaxContext<Keyspace> context = new AstyanaxContext.Builder()
                         .forCluster(getClusterName())
                         .forKeyspace(getKeyspaceName())
                         .withAstyanaxConfiguration(new AstyanaxConfigurationImpl().setDiscoveryType(NodeDiscoveryType.NONE))
-                        .withConnectionPoolConfiguration(
-                                new ConnectionPoolConfigurationImpl("MyConnectionPool").setPort(port).setMaxConnsPerHost(1).setSeeds(StringUtils.join(endpoints, ":" + port + ",")))
-                        .withConnectionPoolMonitor(new CountingConnectionPoolMonitor()).buildKeyspace(ThriftFamilyFactory.getInstance());
+                        .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl(config.getProperty("astyanax.connection.pool", "TokenAware"))
+                        .setPort(port)
+                        .setMaxConnsPerHost(Integer.parseInt(config.getProperty("astyanax.max.connections", "1")))
+                        .setSeeds(StringUtils.join(endpoints, ":" + port + ",")))
+                        .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
+                        .buildKeyspace(ThriftFamilyFactory.getInstance());
                 context.start();
                 keyspace = context.getEntity();
                 return keyspace;

@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.cassandra.utils.Hex;
+import org.apache.http.util.EncodingUtils;
 import org.apache.jmeter.samplers.Entry;
 import org.apache.jmeter.samplers.SampleResult;
 
@@ -106,6 +107,10 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         else if (kSerializerType.equals("CharSerializer"))
         {
             // TODO fix it.
+            return text;
+        }
+        else if (kSerializerType.equals("AsciiSerializer"))
+        {
             return text;
         }
         else if (kSerializerType.equals("BytesArraySerializer"))
