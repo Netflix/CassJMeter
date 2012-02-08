@@ -12,6 +12,7 @@ import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
+import com.netflix.astyanax.model.ConsistencyLevel;
 import com.netflix.astyanax.thrift.ThriftFamilyFactory;
 import com.netflix.jmeter.sampler.Connection;
 import com.netflix.jmeter.sampler.Operation;
@@ -40,13 +41,17 @@ public class AstyanaxConnection extends Connection
                 if (propFile.exists())
                     config.load(new FileReader(propFile));
                 
+                AstyanaxConfigurationImpl configuration = new AstyanaxConfigurationImpl()
+                        .setDiscoveryType(NodeDiscoveryType.NONE)
+                        .setDefaultReadConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getReadConsistency()))
+                        .setDefaultWriteConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getWriteConsistency()));
                 AstyanaxContext<Keyspace> context = new AstyanaxContext.Builder()
                         .forCluster(getClusterName())
                         .forKeyspace(getKeyspaceName())
-                        .withAstyanaxConfiguration(new AstyanaxConfigurationImpl().setDiscoveryType(NodeDiscoveryType.NONE))
+                        .withAstyanaxConfiguration(configuration)
                         .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl(config.getProperty("astyanax.connection.pool", "TokenAware"))
                         .setPort(port)
-                        .setMaxConnsPerHost(Integer.parseInt(config.getProperty("astyanax.max.connections", "1")))
+                        .setMaxConnsPerHost(Integer.parseInt(com.netflix.jmeter.properties.Properties.instance.cassandra.getMaxConnsPerHost()))
                         .setSeeds(StringUtils.join(endpoints, ":" + port + ",")))
                         .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
                         .buildKeyspace(ThriftFamilyFactory.getInstance());
