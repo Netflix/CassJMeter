@@ -10,6 +10,7 @@ import com.netflix.astyanax.AstyanaxContext;
 import com.netflix.astyanax.Keyspace;
 import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
+import com.netflix.astyanax.connectionpool.impl.ConnectionPoolType;
 import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.model.ConsistencyLevel;
@@ -35,21 +36,19 @@ public class AstyanaxConnection extends Connection
                 return keyspace;
             try
             {
-                
-                com.netflix.jmeter.properties.Properties.instance.cassandra.addProperties(config);
                 File propFile = new File("cassandra.properties");
                 if (propFile.exists())
                     config.load(new FileReader(propFile));
-                
                 AstyanaxConfigurationImpl configuration = new AstyanaxConfigurationImpl()
-                        .setDiscoveryType(NodeDiscoveryType.NONE)
+                        .setDiscoveryType(NodeDiscoveryType.valueOf(config.getProperty("astyanax.connection.discovery", "NONE")))
+                        .setConnectionPoolType(ConnectionPoolType.valueOf(config.getProperty("astyanax.connection.pool", "ROUND_ROBIN")))
                         .setDefaultReadConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getReadConsistency()))
                         .setDefaultWriteConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getWriteConsistency()));
                 AstyanaxContext<Keyspace> context = new AstyanaxContext.Builder()
                         .forCluster(getClusterName())
                         .forKeyspace(getKeyspaceName())
                         .withAstyanaxConfiguration(configuration)
-                        .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl(config.getProperty("astyanax.connection.pool", "TokenAware"))
+                        .withConnectionPoolConfiguration(new ConnectionPoolConfigurationImpl(getClusterName())
                         .setPort(port)
                         .setMaxConnsPerHost(Integer.parseInt(com.netflix.jmeter.properties.Properties.instance.cassandra.getMaxConnsPerHost()))
                         .setSeeds(StringUtils.join(endpoints, ":" + port + ",")))
