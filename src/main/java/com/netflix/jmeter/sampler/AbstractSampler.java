@@ -7,7 +7,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.cassandra.utils.Hex;
-import org.apache.http.util.EncodingUtils;
 import org.apache.jmeter.samplers.Entry;
 import org.apache.jmeter.samplers.SampleResult;
 
@@ -38,6 +37,7 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
     public static final String COLUMN_SERIALIZER_TYPE = "COLUMN_SERIALIZER_TYPE";
     public static final String VALUE_SERIALIZER_TYPE = "VALUE_SERIALIZER_TYPE";
     public static final String COLUMN_FAMILY = "COLUMN_FAMILY";
+    public static final String IS_COUNTER = "IS_COUNTER";
 
     @SuppressWarnings("rawtypes")
     public static Map<String, AbstractSerializer> serializers = Maps.newHashMap();
@@ -264,11 +264,10 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
             StringBuffer buff = new StringBuffer();
             buff.append(EXECUTED_ON).append(host).append(SystemUtils.NEW_LINE);
             buff.append(ROW_KEY).append(key).append(SystemUtils.NEW_LINE);
-            buff.append(CN).append(cn).append(SystemUtils.NEW_LINE);
+            if (cn != null)
+                buff.append(CN).append(cn).append(SystemUtils.NEW_LINE);
             if (value != null)
-            {
                 buff.append(CV).append(value).append(SystemUtils.NEW_LINE);
-            }
             this.request = buff.toString();
         }
 
@@ -294,5 +293,15 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         AbstractSerializer<?> kser = serialier(getKSerializerType());
         AbstractSerializer<?> cser = serialier(getCSerializerType());
         ops.serlizers(kser, cser, vser);
+    }
+    
+    public void setCounter(boolean selected)
+    {
+        setProperty(IS_COUNTER, selected);
+    }
+    
+    public boolean isCounter()
+    {
+        return getPropertyAsBoolean(IS_COUNTER);
     }
 }

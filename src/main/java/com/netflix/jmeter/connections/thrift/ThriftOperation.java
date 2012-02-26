@@ -88,9 +88,9 @@ public class ThriftOperation implements Operation
         int bytes = 0;
         try
         {
-            byte[] value = new Reader(client, rConsistecy, cfName).get(rKey, name).getColumn().getValue();
+            ByteBuffer value = new Reader(client, rConsistecy, cfName).get(rKey, name).getColumn().value;
             response = SystemUtils.convertToString(valser, value);
-            bytes = value.length;
+            bytes = value.capacity();
         }
         catch (NotFoundException e)
         {
@@ -119,8 +119,8 @@ public class ThriftOperation implements Operation
             {
                 byte[] name = col.getColumn().getName();
                 bytes += name.length;
-                byte[] value = col.getColumn().getValue();
-                bytes += value.length;
+                ByteBuffer value = col.getColumn().value;
+                bytes += value.capacity();
                 String valueString = SystemUtils.convertToString(valser, value);
                 response.append(colser.fromBytes(name).toString()).append(":").append(valueString).append("\n");
             }

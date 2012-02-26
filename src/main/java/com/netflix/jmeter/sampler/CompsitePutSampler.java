@@ -11,7 +11,7 @@ public class CompsitePutSampler extends AbstractSampler
 
     public ResponseData execute() throws OperationException
     {
-        Operation ops = Connection.getInstace().newOperation(getColumnFamily());
+        Operation ops = Connection.getInstace().newOperation(getColumnFamily(), isCounter());
         setSerializers(ops);
         return ops.putComposite(getProperty(KEY).getStringValue(), getProperty(COLUMN_NAME).getStringValue(), getValue());
     }

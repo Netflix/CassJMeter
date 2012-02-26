@@ -1,5 +1,7 @@
 package com.netflix.jmeter.utils;
 
+import java.nio.ByteBuffer;
+
 import org.apache.cassandra.utils.Hex;
 
 import com.netflix.astyanax.serializers.AbstractSerializer;
@@ -24,13 +26,13 @@ public class SystemUtils
     }
     
     
-    public static String convertToString(AbstractSerializer ser, byte[] bytes)
+    public static String convertToString(AbstractSerializer ser, ByteBuffer byteBuffer)
     {
         String value;
         if (ser instanceof BytesArraySerializer)
-            value = Hex.bytesToHex(bytes);
+            value = Hex.bytesToHex(byteBuffer.array());
         else
-            value = ser.fromBytes(bytes).toString();
+            value = ser.fromByteBuffer(byteBuffer).toString();
         return value;
     }
     

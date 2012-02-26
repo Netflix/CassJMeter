@@ -104,7 +104,7 @@ public class FatClientOperation extends ThriftOperation
             {
                 for (IColumn col : cf.getSortedColumns())
                 {
-                    String value = SystemUtils.convertToString(valser, col.value().array());
+                    String value = SystemUtils.convertToString(valser, col.value());
                     response.append(colser.fromByteBuffer(col.name())).append(":").append(value);
                     bytes += col.name().capacity();
                     bytes += col.value().capacity();
@@ -142,7 +142,7 @@ public class FatClientOperation extends ThriftOperation
             {
                 for (IColumn col : cf.getSortedColumns())
                 {
-                    String value = SystemUtils.convertToString(valser, col.value().array());
+                    String value = SystemUtils.convertToString(valser, col.value());
                     response.append(colser.fromByteBuffer(col.name())).append(":").append(value);
                     bytes += col.name().capacity();
                     bytes += col.value().capacity();

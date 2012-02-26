@@ -12,7 +12,7 @@ public class BatchPutSampler extends AbstractSampler
 
     public ResponseData execute() throws OperationException
     {
-        Operation ops = Connection.getInstace().newOperation(getColumnFamily());
+        Operation ops = Connection.getInstace().newOperation(getColumnFamily(), isCounter());
         setSerializers(ops);
         Map<?, ?> nv = getNameValue();
         return ops.batchMutate(getKey(), nv);

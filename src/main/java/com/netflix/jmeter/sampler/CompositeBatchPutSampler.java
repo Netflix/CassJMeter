@@ -12,7 +12,7 @@ public class CompositeBatchPutSampler extends AbstractSampler
 
     public ResponseData execute() throws OperationException
     {
-        Operation ops = Connection.getInstace().newOperation(getColumnFamily());
+        Operation ops = Connection.getInstace().newOperation(getColumnFamily(), isCounter());
         setSerializers(ops);
         Map<?, ?> nv = getNameValue();
         return ops.batchMutate(getKey(), nv);
@@ -30,10 +30,5 @@ public class CompositeBatchPutSampler extends AbstractSampler
             return_.put(convert(cName, getCSerializerType()), convert(vName, getVSerializerType()));
         }
         return return_;
-    }
-
-    public void setNameValue(String text)
-    {
-        setProperty(NAME_AND_VALUE, text);
     }
 }

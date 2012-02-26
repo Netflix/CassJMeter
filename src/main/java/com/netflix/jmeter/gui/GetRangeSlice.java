@@ -73,14 +73,14 @@ public class GetRangeSlice extends AbstractGUI
     @Override
     public void init(JPanel mainPanel, GridBagConstraints labelConstraints, GridBagConstraints editConstraints)
     {
-        addToPanel(mainPanel, labelConstraints, 0, 2, new JLabel("START COLUMN NAME: ", JLabel.RIGHT));
-        addToPanel(mainPanel, editConstraints, 1, 2, START_COLUMN_NAME = new JTextField());
-        addToPanel(mainPanel, labelConstraints, 0, 3, new JLabel("END COLUMN NAME: ", JLabel.RIGHT));
-        addToPanel(mainPanel, editConstraints, 1, 3, END_COLUMN_NAME = new JTextField());
-        addToPanel(mainPanel, labelConstraints, 0, 4, new JLabel("COUNT: ", JLabel.RIGHT));
-        addToPanel(mainPanel, editConstraints, 1, 4, COUNT = new JTextField());
-        addToPanel(mainPanel, labelConstraints, 0, 5, new JLabel("REVERSE: ", JLabel.RIGHT));
-        addToPanel(mainPanel, editConstraints, 1, 5, IS_REVERSE = new JCheckBox());
+        addToPanel(mainPanel, labelConstraints, 0, 3, new JLabel("Start Column Name: ", JLabel.RIGHT));
+        addToPanel(mainPanel, editConstraints, 1, 3, START_COLUMN_NAME = new JTextField());
+        addToPanel(mainPanel, labelConstraints, 0, 4, new JLabel("End Column Name: ", JLabel.RIGHT));
+        addToPanel(mainPanel, editConstraints, 1, 4, END_COLUMN_NAME = new JTextField());
+        addToPanel(mainPanel, labelConstraints, 0, 5, new JLabel("Count: ", JLabel.RIGHT));
+        addToPanel(mainPanel, editConstraints, 1, 5, COUNT = new JTextField());
+        addToPanel(mainPanel, labelConstraints, 0, 6, new JLabel("Reverse: ", JLabel.RIGHT));
+        addToPanel(mainPanel, editConstraints, 1, 6, IS_REVERSE = new JCheckBox());
         addToPanel(mainPanel, labelConstraints, 0, 7, new JLabel("Column Serializer: ", JLabel.RIGHT));
         addToPanel(mainPanel, editConstraints, 1, 7, CSERIALIZER = new JComboBox(AbstractSampler.getSerializerNames().toArray()));
         addToPanel(mainPanel, labelConstraints, 0, 8, new JLabel("Value Serializer: ", JLabel.RIGHT));

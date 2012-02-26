@@ -60,8 +60,8 @@ public class Get extends AbstractGUI
     @Override
     public void init(JPanel mainPanel, GridBagConstraints labelConstraints, GridBagConstraints editConstraints)
     {
-        addToPanel(mainPanel, labelConstraints, 0, 2, new JLabel("COLUMN NAME: ", JLabel.RIGHT));
-        addToPanel(mainPanel, editConstraints, 1, 2, CNAME = new JTextField());
+        addToPanel(mainPanel, labelConstraints, 0, 3, new JLabel("Column Name: ", JLabel.RIGHT));
+        addToPanel(mainPanel, editConstraints, 1, 3, CNAME = new JTextField());
         addToPanel(mainPanel, labelConstraints, 0, 4, new JLabel("Column Serializer: ", JLabel.RIGHT));
         addToPanel(mainPanel, editConstraints, 1, 4, CSERIALIZER = new JComboBox(AbstractSampler.getSerializerNames().toArray()));
         addToPanel(mainPanel, labelConstraints, 0, 5, new JLabel("Value Serializer: ", JLabel.RIGHT));

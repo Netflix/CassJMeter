@@ -120,6 +120,5 @@ public class SchemaProperties extends ConfigTestElement implements TestBean
     public void setColumn_family(String val)
     {
         setProperty(column_family, val);
-    }
-    
+    }    
 }

@@ -4,7 +4,6 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
 
-import org.apache.cassandra.utils.Hex;
 import org.apache.cassandra.utils.Pair;
 
 import com.netflix.astyanax.ColumnListMutation;
@@ -19,7 +18,7 @@ import com.netflix.astyanax.model.ColumnFamily;
 import com.netflix.astyanax.model.ColumnList;
 import com.netflix.astyanax.serializers.AbstractSerializer;
 import com.netflix.astyanax.serializers.ByteBufferSerializer;
-import com.netflix.astyanax.serializers.BytesArraySerializer;
+import com.netflix.astyanax.serializers.LongSerializer;
 import com.netflix.astyanax.util.RangeBuilder;
 import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.Operation;
@@ -28,31 +27,34 @@ import com.netflix.jmeter.utils.SystemUtils;
 
 public class AstyanaxOperation implements Operation
 {
-    private AbstractSerializer valser;
+    private AbstractSerializer valueSerializer;
     private ColumnFamily<Object, Object> cfs;
-    private AbstractSerializer colSer;
-    private AbstractSerializer kser;
+    private AbstractSerializer columnSerializer;
     private final String cfName;
+    private final boolean isCounter;
 
-    AstyanaxOperation(String columnName)
+    AstyanaxOperation(String columnName, boolean isCounter)
     {
         this.cfName = columnName;
+        this.isCounter = isCounter;
     }
 
     @Override
-    public void serlizers(AbstractSerializer kser, AbstractSerializer colser, AbstractSerializer valser)
+    public void serlizers(AbstractSerializer<?> keySerializer, AbstractSerializer<?> columnSerializer, AbstractSerializer<?> valueSerializer)
     {
-        this.kser = kser;
-        this.valser = valser;
-        this.cfs = new ColumnFamily(cfName, kser, colser);
-        this.colSer = colser;
+        this.cfs = new ColumnFamily(cfName, keySerializer, columnSerializer);
+        this.columnSerializer = columnSerializer;
+        this.valueSerializer = valueSerializer;
     }
 
     @Override
     public ResponseData put(Object key, Object colName, Object value) throws OperationException
     {
         MutationBatch m = AstyanaxConnection.instance.keyspace().prepareMutationBatch();
-        m.withRow(cfs, key).putColumn(colName, value, valser, null);
+        if (isCounter)
+            m.withRow(cfs, key).incrementCounterColumn(colName, (Long) value);
+        else
+            m.withRow(cfs, key).putColumn(colName, value, valueSerializer, null);
         try
         {
             OperationResult<Void> result = m.execute();
@@ -70,11 +72,16 @@ public class AstyanaxOperation implements Operation
         try
         {
             SerializerPackage sp = AstyanaxConnection.instance.keyspace().getSerializerPackage(cfName, false);
-            ByteBuffer bbName = sp.columnAsByteBuffer(colName);
-            ByteBuffer bbKey = sp.keyAsByteBuffer(key);
-            ColumnFamily columnFamily = new ColumnFamily(cfName, ByteBufferSerializer.get(), ByteBufferSerializer.get());
-            ColumnMutation mutation = AstyanaxConnection.instance.keyspace().prepareColumnMutation(columnFamily, bbKey, bbName);
-            OperationResult<Void> result = mutation.putValue(value, null).execute();
+            // work around
+            ByteBuffer rowKey = sp.keyAsByteBuffer(key);
+            ByteBuffer column = sp.columnAsByteBuffer(colName);
+            ColumnFamily<ByteBuffer, ByteBuffer> columnFamily = new ColumnFamily(cfName, ByteBufferSerializer.get(), ByteBufferSerializer.get());
+            ColumnMutation mutation = AstyanaxConnection.instance.keyspace().prepareColumnMutation(columnFamily, rowKey, column);
+            OperationResult<Void> result;
+            if (isCounter)
+                result = mutation.incrementCounterColumn(LongSerializer.get().fromByteBuffer(value)).execute();
+            else
+                result = mutation.putValue(value, null).execute();
             return new ResponseData("", 0, result.getHost().getHostName(), key, colName, value);
         }
         catch (Exception e)
@@ -96,7 +103,12 @@ public class AstyanaxOperation implements Operation
         MutationBatch m = AstyanaxConnection.instance.keyspace().prepareMutationBatch();
         ColumnListMutation<Object> cf = m.withRow(cfs, key);
         for (Map.Entry<?, ?> entry : nv.entrySet())
-            cf.putColumn(entry.getKey(), entry.getValue(), valser, null);
+        {
+            if (isCounter)
+                cf.incrementCounterColumn(entry.getKey(), (Long) entry.getValue());
+            else
+                cf.putColumn(entry.getKey(), entry.getValue(), valueSerializer, null);
+        }
         try
         {
             OperationResult<Void> result = m.execute();
@@ -117,8 +129,9 @@ public class AstyanaxOperation implements Operation
         try
         {
             opResult = AstyanaxConnection.instance.keyspace().prepareQuery(cfs).getKey(rkey).getColumn(colName).execute();
-            bytes = opResult.getResult().getByteArrayValue().length;
-            String value = SystemUtils.convertToString(valser, opResult.getResult().getByteArrayValue());
+            bytes = opResult.getResult().getRawName().capacity();
+            bytes += opResult.getResult().getByteBufferValue().capacity();
+            String value = SystemUtils.convertToString(valueSerializer, opResult.getResult().getByteBufferValue());
             response.append(value);
         }
         catch (NotFoundException ex)
@@ -139,16 +152,17 @@ public class AstyanaxOperation implements Operation
     {
         StringBuffer response = new StringBuffer();
         int bytes = 0;
-        OperationResult<Column<Object>> opResult = null;
+        OperationResult<Column<ByteBuffer>> opResult = null;
         try
         {
             SerializerPackage sp = AstyanaxConnection.instance.keyspace().getSerializerPackage(cfName, false);
             ByteBuffer bbName = sp.columnAsByteBuffer(colName);
             ByteBuffer bbKey = sp.keyAsByteBuffer(key);
-            ColumnFamily columnFamily = new ColumnFamily(cfName, ByteBufferSerializer.get(), ByteBufferSerializer.get());
+            ColumnFamily<ByteBuffer, ByteBuffer> columnFamily = new ColumnFamily(cfName, ByteBufferSerializer.get(), ByteBufferSerializer.get());
             opResult = AstyanaxConnection.instance.keyspace().prepareQuery(columnFamily).getKey(bbKey).getColumn(bbName).execute();
-            bytes = opResult.getResult().getByteArrayValue().length;
-            String value = SystemUtils.convertToString(valser, opResult.getResult().getByteArrayValue());
+            bytes = opResult.getResult().getByteBufferValue().capacity();
+            bytes += opResult.getResult().getRawName().capacity();
+            String value = SystemUtils.convertToString(valueSerializer, opResult.getResult().getByteBufferValue());
             response.append(value);
         }
         catch (NotFoundException ex)
@@ -164,7 +178,6 @@ public class AstyanaxOperation implements Operation
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public ResponseData rangeSlice(Object rKey, Object startColumn, Object endColumn, boolean reversed, int count) throws OperationException
     {
         int bytes = 0;
@@ -172,17 +185,15 @@ public class AstyanaxOperation implements Operation
         StringBuffer response = new StringBuffer().append("\n");
         try
         {
-            RangeBuilder rb = new RangeBuilder().setStart(startColumn, colSer).setEnd(endColumn, colSer).setMaxSize(count);
-            if (reversed)
-                rb.setReversed();
+            RangeBuilder rb = new RangeBuilder().setStart(startColumn, columnSerializer).setEnd(endColumn, columnSerializer).setLimit(count).setReversed(reversed);
             opResult = AstyanaxConnection.instance.keyspace().prepareQuery(cfs).getKey(rKey).withColumnRange(rb.build()).execute();
             Iterator<?> it = opResult.getResult().iterator();
             while (it.hasNext())
             {
                 Column<?> col = (Column<?>) it.next();
-                String key = SystemUtils.convertToString(colSer, col.getRawName().array());
-                bytes += key.getBytes().length;
-                String value = SystemUtils.convertToString(valser, col.getByteArrayValue());
+                String key = SystemUtils.convertToString(columnSerializer, col.getRawName());
+                bytes += col.getRawName().capacity();
+                String value = SystemUtils.convertToString(valueSerializer, col.getByteBufferValue());
                 bytes += col.getByteBufferValue().capacity();
                 response.append(key).append(":").append(value).append(SystemUtils.NEW_LINE);
             }
@@ -211,7 +222,6 @@ public class AstyanaxOperation implements Operation
         {
             throw new OperationException(e);
         }
-
-        return new ResponseData(null, 0, opResult);
+        return new ResponseData("", 0, opResult.getHost().getHostName(), rkey, colName, null);
     }
 }

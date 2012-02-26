@@ -25,6 +25,7 @@ import com.netflix.jmeter.sampler.AbstractSampler;
 public abstract class AbstractGUI extends AbstractSamplerGui
 {
     private static final long serialVersionUID = -1372154378991423872L;
+    private static final String WIKI = "https://github.com/Netflix/CassJMeter";
     private JTextField KEY;
     private JComboBox KSERIALIZER;
     private JTextField COLUMN_FAMILY;
@@ -33,6 +34,7 @@ public abstract class AbstractGUI extends AbstractSamplerGui
     {
         setLayout(new BorderLayout(0, 5));
         setBorder(makeBorder());
+        add(addHelpLinkToPanel(makeTitlePanel(), WIKI), BorderLayout.NORTH);
         JPanel mainPanel = new JPanel(new GridBagLayout());
         GridBagConstraints labelConstraints = new GridBagConstraints();
         labelConstraints.anchor = GridBagConstraints.FIRST_LINE_END;
@@ -41,10 +43,11 @@ public abstract class AbstractGUI extends AbstractSamplerGui
         editConstraints.anchor = GridBagConstraints.FIRST_LINE_START;
         editConstraints.weightx = 1.0;
         editConstraints.fill = GridBagConstraints.HORIZONTAL;
-        addToPanel(mainPanel, labelConstraints, 0, 0, new JLabel("ColumnFamily: ", JLabel.RIGHT));
-        addToPanel(mainPanel, editConstraints, 1, 0, COLUMN_FAMILY = new JTextField());
-        addToPanel(mainPanel, labelConstraints, 0, 1, new JLabel("ROW KEY: ", JLabel.RIGHT));
-        addToPanel(mainPanel, editConstraints, 1, 1, KEY = new JTextField());
+        
+        addToPanel(mainPanel, labelConstraints, 0, 1, new JLabel("Column Family: ", JLabel.RIGHT));
+        addToPanel(mainPanel, editConstraints, 1, 1, COLUMN_FAMILY = new JTextField());
+        addToPanel(mainPanel, labelConstraints, 0, 2, new JLabel("Row Key: ", JLabel.RIGHT));
+        addToPanel(mainPanel, editConstraints, 1, 2, KEY = new JTextField());
         init(mainPanel, labelConstraints, editConstraints);
         
         addToPanel(mainPanel, labelConstraints, 0, 10, new JLabel("Key Serializer: ", JLabel.RIGHT));

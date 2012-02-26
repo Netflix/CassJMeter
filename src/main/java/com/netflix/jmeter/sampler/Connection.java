@@ -143,5 +143,5 @@ public abstract class Connection
         return ColumnFamilyType.Standard;
     }
 
-    public abstract Operation newOperation(String columnName);
+    public abstract Operation newOperation(String columnName, boolean isCounter);
 }
