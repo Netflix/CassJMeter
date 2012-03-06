@@ -11,11 +11,12 @@ import org.slf4j.LoggerFactory;
 import com.netflix.astyanax.AstyanaxContext;
 import com.netflix.astyanax.AstyanaxContext.Builder;
 import com.netflix.astyanax.Keyspace;
+import com.netflix.astyanax.connectionpool.ConnectionPoolMonitor;
 import com.netflix.astyanax.connectionpool.LatencyScoreStrategy;
 import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolType;
-import com.netflix.astyanax.connectionpool.impl.Slf4jConnectionPoolMonitorImpl;
+import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
 import com.netflix.astyanax.connectionpool.impl.SmaLatencyScoreStrategyImpl;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.model.ConsistencyLevel;
@@ -30,7 +31,7 @@ public class AstyanaxConnection extends Connection
     public static final AstyanaxConnection instance = new AstyanaxConnection();
     public Properties config = new Properties();
     private Keyspace keyspace;
-    private Slf4jConnectionPoolMonitorImpl connectionPoolMonitor;
+    private ConnectionPoolMonitor connectionPoolMonitor;
 
     public Keyspace keyspace()
     {
@@ -65,7 +66,8 @@ public class AstyanaxConnection extends Connection
                     int resetInterval = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.resetInterval", "5000"));
                     int windowSize = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.windowSize", "100"));
                     double badnessThreshold = Double.parseDouble(config.getProperty("astyanax.connection.latency.stategy.badnessThreshold", "0.1"));
-                    latencyScoreStrategy = new SmaLatencyScoreStrategyImpl(updateInterval, resetInterval, windowSize, badnessThreshold);
+                    // latencyScoreStrategy = new SmaLatencyScoreStrategyImpl(updateInterval, resetInterval, windowSize, badnessThreshold);
+                    latencyScoreStrategy = new EmptyLatencyScoreStrategyImpl();
                 }
                 else
                 {
@@ -81,7 +83,8 @@ public class AstyanaxConnection extends Connection
                 logger.info("ConnectionPoolConfiguration: " + poolConfig.toString());
                 
                 // set this as field for logging purpose only.
-                connectionPoolMonitor = new Slf4jConnectionPoolMonitorImpl();
+                //connectionPoolMonitor = new Slf4jConnectionPoolMonitorImpl();
+                connectionPoolMonitor = new CountingConnectionPoolMonitor();
                 Builder builder = new AstyanaxContext.Builder();
                 builder.forCluster(getClusterName());
                 builder.forKeyspace(getKeyspaceName());
@@ -109,6 +112,6 @@ public class AstyanaxConnection extends Connection
     @Override
     public String logConnections()
     {
-        return connectionPoolMonitor.toString();
+        return connectionPoolMonitor == null ? "" : connectionPoolMonitor.toString();
     }
 }
