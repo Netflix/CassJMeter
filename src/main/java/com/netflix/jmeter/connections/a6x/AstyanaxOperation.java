@@ -3,6 +3,7 @@ package com.netflix.jmeter.connections.a6x;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.cassandra.utils.Pair;
 
@@ -33,6 +34,24 @@ public class AstyanaxOperation implements Operation
     private final String cfName;
     private final boolean isCounter;
 
+    public class AstyanaxResponseData extends ResponseData
+    {
+        public AstyanaxResponseData(String response, int size, OperationResult<?> result)
+        {
+            super(response, size, EXECUTED_ON + result != null ? result.getHost().getHostName() : "", result != null ? result.getLatency(TimeUnit.MILLISECONDS) : 0);
+        }
+
+        public AstyanaxResponseData(String response, int size, OperationResult<?> result, Object key, Object cn, Object value)
+        {
+            super(response, size, EXECUTED_ON + result != null ? result.getHost().getHostName() : "", result != null ? result.getLatency(TimeUnit.MILLISECONDS) : 0, key, cn, value);
+        }
+        
+        public AstyanaxResponseData(String response, int size, OperationResult<?> result, Object key, Map<?, ?> kv)
+        {
+            super(response, size, (result == null) ? "" : result.getHost().getHostName(), result != null ? result.getLatency(TimeUnit.MILLISECONDS) : 0, key, kv);
+        }
+    }
+    
     AstyanaxOperation(String columnName, boolean isCounter)
     {
         this.cfName = columnName;
@@ -58,7 +77,7 @@ public class AstyanaxOperation implements Operation
         try
         {
             OperationResult<Void> result = m.execute();
-            return new ResponseData("", 0, result.getHost().getHostName(), key, colName, value);
+            return new AstyanaxResponseData("", 0, result, key, colName, value);
         }
         catch (ConnectionException e)
         {
@@ -82,7 +101,7 @@ public class AstyanaxOperation implements Operation
                 result = mutation.incrementCounterColumn(LongSerializer.get().fromByteBuffer(value)).execute();
             else
                 result = mutation.putValue(value, null).execute();
-            return new ResponseData("", 0, result.getHost().getHostName(), key, colName, value);
+            return new AstyanaxResponseData("", 0, result, key, colName, value);
         }
         catch (Exception e)
         {
@@ -112,7 +131,7 @@ public class AstyanaxOperation implements Operation
         try
         {
             OperationResult<Void> result = m.execute();
-            return new ResponseData("", 0, result.getHost().getHostName(), key, nv);
+            return new AstyanaxResponseData("", 0, result, key, nv);
         }
         catch (ConnectionException e)
         {
@@ -144,11 +163,11 @@ public class AstyanaxOperation implements Operation
             throw new OperationException(e);
         }
 
-        return new ResponseData(response.toString(), bytes, opResult.getHost().getHostName(), rkey, colName, null);
+        return new AstyanaxResponseData(response.toString(), bytes, opResult, rkey, colName, null);
     }
 
     @Override
-    public ResponseData getCompsote(String key, String colName) throws OperationException
+    public ResponseData getComposite(String key, String colName) throws OperationException
     {
         StringBuffer response = new StringBuffer();
         int bytes = 0;
@@ -174,7 +193,7 @@ public class AstyanaxOperation implements Operation
         {
             throw new OperationException(e);
         }
-        return new ResponseData(response.toString(), bytes, opResult.getHost().getHostName(), key, colName, null);
+        return new AstyanaxResponseData(response.toString(), bytes, opResult, key, colName, null);
     }
 
     @Override
@@ -207,21 +226,20 @@ public class AstyanaxOperation implements Operation
         {
             throw new OperationException(e);
         }
-        return new ResponseData(response.toString(), bytes, opResult.getHost().getHostName(), rKey, Pair.create(startColumn, endColumn), null);
+        return new AstyanaxResponseData(response.toString(), bytes, opResult, rKey, Pair.create(startColumn, endColumn), null);
     }
 
     @Override
     public ResponseData delete(Object rkey, Object colName) throws OperationException
     {
-        OperationResult<Void> opResult = null;
         try
         {
-            opResult = AstyanaxConnection.instance.keyspace().prepareColumnMutation(cfs, rkey, colName).deleteColumn().execute();
+            OperationResult<Void> opResult = AstyanaxConnection.instance.keyspace().prepareColumnMutation(cfs, rkey, colName).deleteColumn().execute();
+            return new AstyanaxResponseData("", 0, opResult, rkey, colName, null);
         }
         catch (ConnectionException e)
         {
             throw new OperationException(e);
         }
-        return new ResponseData("", 0, opResult.getHost().getHostName(), rkey, colName, null);
     }
 }

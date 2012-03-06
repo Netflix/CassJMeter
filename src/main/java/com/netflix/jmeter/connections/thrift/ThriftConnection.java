@@ -3,6 +3,8 @@ package com.netflix.jmeter.connections.thrift;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
+
 import com.google.common.collect.Lists;
 import com.netflix.jmeter.properties.Properties;
 import com.netflix.jmeter.sampler.Connection;
@@ -39,5 +41,11 @@ public class ThriftConnection extends Connection
                 Properties.instance.cassandra.getWriteConsistency(), 
                 Properties.instance.cassandra.getReadConsistency(),
                 cfName);
+    }
+
+    @Override
+    public String logConnections()
+    {
+        return "Nodes in the list: " + StringUtils.join(endpoints, ",");
     }
 }

@@ -55,7 +55,7 @@ public abstract class Connection
 
     void setupKeyspace()
     {
-        if (Properties.instance.schema == null)
+        if (Properties.instance.getSchemas().size() == 0)
             return;
         for (String host : endpoints)
         {
@@ -119,6 +119,26 @@ public abstract class Connection
             try
             {
                 connection = FBUtilities.construct(Properties.instance.cassandra.getClientType(), "Creating Connection");
+                // Log the metrics for troubleshooting. 
+                new Thread()
+                {
+                    @Override
+                    public void run()
+                    {
+                        while (true)
+                        {
+                            try
+                            {
+                                logger.info("ConnectionPoolMonitor: " + connection.logConnections());
+                                Thread.sleep(60 * 1000);
+                            }
+                            catch (InterruptedException wtf)
+                            {
+                                // Ignored.
+                            }
+                        }
+                    }
+                }.start();
                 return connection;
             }
             catch (Exception e)
@@ -144,4 +164,6 @@ public abstract class Connection
     }
 
     public abstract Operation newOperation(String columnName, boolean isCounter);
+    
+    public abstract String logConnections();
 }

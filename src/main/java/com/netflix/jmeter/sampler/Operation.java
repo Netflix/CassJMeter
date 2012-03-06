@@ -22,7 +22,7 @@ public interface Operation
 
     ResponseData batchCompositeMutate(String key, Map<String, ByteBuffer> nv) throws OperationException;
 
-    ResponseData getCompsote(String stringValue, String stringValue2) throws OperationException;
+    ResponseData getComposite(String stringValue, String stringValue2) throws OperationException;
     
     ResponseData delete(Object rkey, Object colName) throws OperationException;
 }

@@ -18,28 +18,28 @@ public class Schema
     private static String STATEGY_CLASS = "org.apache.cassandra.locator.NetworkTopologyStrategy";
     private CClient client;
     private String ksName;
-    private String cfName;
 
     public Schema(CClient client)
     {
         this.client = client;
         this.ksName = Connection.getKeyspaceName();
-        this.cfName = Properties.instance.schema.getColumn_family();
     }
 
-    public void createKeyspace() throws Exception
+    public synchronized void createKeyspace() throws Exception
     {
         // create Keyspace if it doesnt exist.
         KsDef ksd;
         try
         {
             ksd = client.describe_keyspace(ksName);
+            client.set_keyspace(ksName);
+            createColumnFamily(ksd, false);
         }
         catch (NotFoundException ex)
         {
             ksd = new KsDef(ksName, STATEGY_CLASS, new ArrayList<CfDef>());
             Map<String, String> strategy_options = Maps.newHashMap();
-            String[] splits = Properties.instance.schema.getStrategy_options().split(",");
+            String[] splits = Properties.instance.getSchemas().get(0).getStrategy_options().split(",");
             for (String split : splits)
             {
                 String[] replication = split.split(":");
@@ -47,33 +47,45 @@ public class Schema
                 strategy_options.put(replication[0], replication[1]);
             }
             ksd.setStrategy_options(strategy_options);
+            createColumnFamily(ksd, true);
             client.send_system_add_keyspace(ksd);
         }
-        createColumnFamily(ksd);
     }
 
-    public void createColumnFamily(KsDef ksd) throws Exception
+    public void createColumnFamily(KsDef ksd, boolean addToKS) throws Exception
     {
-        // create column family
-        List<CfDef> list = ksd.getCf_defs() == null ? new ArrayList<CfDef>() : ksd.getCf_defs();
-        for (CfDef cfd : list)
+        Map<String, SchemaProperties> removedDuplicates = Maps.newConcurrentMap();
+        for (SchemaProperties props :  Properties.instance.getSchemas())
+            removedDuplicates.put(props.getColumn_family(), props);
+        
+        OUTER: for (SchemaProperties props : removedDuplicates.values())
         {
-            if (cfd.getName().equals(cfName))
-                return;
+            List<CfDef> list = ksd.getCf_defs() == null ? new ArrayList<CfDef>() : ksd.getCf_defs();
+            for (CfDef cfd : list)
+            {
+                if (cfd.getName().equals(props.getColumn_family()))
+                    continue OUTER;
+            }
+            
+            if (addToKS)
+            {
+                ksd.addToCf_defs(columnFamilyDef(props));
+            }
+            else
+            {
+                client.send_system_add_column_family(columnFamilyDef(props));
+            }
         }
-        client.set_keyspace(ksName);
-        client.send_system_add_column_family(columnFamilyDef());
     }
 
-    private CfDef columnFamilyDef()
+    // create column family
+    private CfDef columnFamilyDef(SchemaProperties prop)
     {
-        SchemaProperties prop = Properties.instance.schema;
-        CfDef cfd = new CfDef(ksName, cfName);
-        cfd.setKey_cache_size(1.0);
+        CfDef cfd = new CfDef(ksName, prop.getColumn_family());
+        cfd.setKey_cache_size(Double.parseDouble(prop.getKeys_cached()));
         cfd.setComparator_type(prop.getComparator_type());
         cfd.setKey_validation_class(prop.getKey_validation_class());
         cfd.setDefault_validation_class(prop.getDefault_validation_class());
-        cfd.setKey_cache_size(1D);
         cfd.setRow_cache_provider(prop.getRow_cache_provider());
         cfd.setRow_cache_size(Double.parseDouble(prop.getRows_cached()));
         return cfd;

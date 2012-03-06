@@ -11,7 +11,6 @@ import javax.swing.JTextField;
 import org.apache.jmeter.testelement.TestElement;
 
 import com.netflix.jmeter.sampler.AbstractSampler;
-import com.netflix.jmeter.sampler.CompsitePutSampler;
 import com.netflix.jmeter.sampler.PutSampler;
 
 public class Put extends AbstractGUI

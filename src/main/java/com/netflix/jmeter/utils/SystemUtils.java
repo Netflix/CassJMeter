@@ -26,7 +26,7 @@ public class SystemUtils
     }
     
     
-    public static String convertToString(AbstractSerializer ser, ByteBuffer byteBuffer)
+    public static String convertToString(AbstractSerializer<?> ser, ByteBuffer byteBuffer)
     {
         String value;
         if (ser instanceof BytesArraySerializer)

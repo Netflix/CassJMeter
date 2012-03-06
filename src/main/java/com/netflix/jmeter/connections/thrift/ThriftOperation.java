@@ -7,6 +7,7 @@ import java.util.Map;
 import org.apache.cassandra.thrift.ColumnOrSuperColumn;
 import org.apache.cassandra.thrift.ConsistencyLevel;
 import org.apache.cassandra.thrift.NotFoundException;
+import org.apache.cassandra.utils.Pair;
 
 import com.netflix.astyanax.serializers.AbstractSerializer;
 import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
@@ -34,7 +35,7 @@ public class ThriftOperation implements Operation
     }
 
     @Override
-    public void serlizers(AbstractSerializer kser, AbstractSerializer colser, AbstractSerializer valser)
+    public void serlizers(AbstractSerializer<?> kser, AbstractSerializer<?> colser, AbstractSerializer<?> valser)
     {
         this.kser = kser;
         this.colser = colser;
@@ -55,28 +56,28 @@ public class ThriftOperation implements Operation
         {
             throw new OperationException(e);
         }
-        return new ResponseData("", 0, client.host);
+        return new ResponseData("", 0, client.host, 0, key, colName, value);
     }
 
     @Override
     public ResponseData batchMutate(Object key, Map<?, ?> nv) throws OperationException
     {
-        Writer bm = new Writer(client, wConsistecy, cfName);
+        Writer writer = new Writer(client, wConsistecy, cfName);
         try
         {
             for (Map.Entry<?, ?> entity : nv.entrySet())
             {
                 ByteBuffer name = colser.toByteBuffer(entity.getKey());
                 ByteBuffer value = valser.toByteBuffer(entity.getValue());
-                bm.prepareAdd(name, value);
+                writer.prepareAdd(name, value);
             }
-            bm.insert(kser.toByteBuffer(key));
+            writer.insert(kser.toByteBuffer(key));
         }
         catch (Exception e)
         {
             throw new OperationException(e);
         }
-        return new ResponseData("", 0, client.host);
+        return new ResponseData("", 0, client.host, 0, key, nv);
     }
 
     @Override
@@ -100,7 +101,7 @@ public class ThriftOperation implements Operation
         {
             throw new OperationException(e);
         }
-        return new ResponseData(response, bytes, client.host);
+        return new ResponseData(response, bytes, client.host, 0, rkey, colName, null);
     }
 
     @Override
@@ -133,7 +134,7 @@ public class ThriftOperation implements Operation
         {
             throw new OperationException(e);
         }
-        return new ResponseData(response.toString(), bytes, client.host);
+        return new ResponseData(response.toString(), bytes, client.host, 0, rKey, Pair.create(startColumn, endColumn), null);
     }
 
     @Override
@@ -151,7 +152,7 @@ public class ThriftOperation implements Operation
     }
 
     @Override
-    public ResponseData getCompsote(String stringValue, String stringValue2) throws OperationException
+    public ResponseData getComposite(String stringValue, String stringValue2) throws OperationException
     {
         // TODO Auto-generated method stub
         return null;

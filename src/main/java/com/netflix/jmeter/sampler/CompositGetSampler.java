@@ -8,6 +8,6 @@ public class CompositGetSampler extends AbstractSampler
     {
         Operation ops = Connection.getInstace().newOperation(getColumnFamily(), false);
         setSerializers(ops);
-        return ops.getCompsote(getProperty(KEY).getStringValue(), getProperty(COLUMN_NAME).getStringValue());
+        return ops.getComposite(getProperty(KEY).getStringValue(), getProperty(COLUMN_NAME).getStringValue());
     }
 }

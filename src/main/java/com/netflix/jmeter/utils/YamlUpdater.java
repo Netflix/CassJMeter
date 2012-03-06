@@ -19,7 +19,7 @@ import com.google.common.collect.Lists;
 public class YamlUpdater
 {
     private Yaml yaml;
-    private Map map;
+    private Map<Object, Object> map;
     private File yamlFile;
 
     public YamlUpdater(String location) throws FileNotFoundException
@@ -36,10 +36,10 @@ public class YamlUpdater
         map.put(key, value);
     }
 
+    @SuppressWarnings("unchecked")
     public void setSeeds(Set<String> seeds)
     {
         List<?> seedp = (List) map.get("seed_provider");
-        
         Map m = (Map) seedp.get(0);
         m.put("class_name", "org.apache.cassandra.locator.SimpleSeedProvider");
         
@@ -50,6 +50,7 @@ public class YamlUpdater
         m.put("parameters", lst);
     }
 
+    @SuppressWarnings("unchecked")
     public void encriptionOption(String string, String internode_encryption)
     {
         Map m = (Map) map.get("encryption_options");

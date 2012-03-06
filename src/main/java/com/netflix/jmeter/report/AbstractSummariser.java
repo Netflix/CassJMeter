@@ -21,6 +21,7 @@ public abstract class AbstractSummariser extends AbstractTestElement implements 
     private static final Logger logger = LoggerFactory.getLogger(AbstractSummariser.class);
     private static final ConcurrentHashMap<String, AbstractRunningSampleWrapper> allTests = new ConcurrentHashMap<String, AbstractRunningSampleWrapper>();
     private static final long INTERVAL = 60 * 1000; // Every Minute
+    private static boolean initalized = false;
 
     public AbstractSummariser()
     {

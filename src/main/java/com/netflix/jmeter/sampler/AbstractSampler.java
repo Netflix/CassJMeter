@@ -11,7 +11,6 @@ import org.apache.jmeter.samplers.Entry;
 import org.apache.jmeter.samplers.SampleResult;
 
 import com.google.common.collect.Maps;
-import com.netflix.astyanax.connectionpool.OperationResult;
 import com.netflix.astyanax.serializers.AbstractSerializer;
 import com.netflix.astyanax.serializers.AsciiSerializer;
 import com.netflix.astyanax.serializers.BigIntegerSerializer;
@@ -200,16 +199,15 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         sr.setDataType(SampleResult.TEXT);
         long start = sr.currentTimeInMillis();
         String message = "ERROR: UNKNOWN";
+        ResponseData response = null;
         try
         {
-            ResponseData response = execute();
+            response = execute();
             sr.setBytes(response.size);
-            message = response.response;
-            sr.setLatency(response.latency);
+            message = response.responseRecived;
             sr.setSuccessful(true);
             sr.setResponseCodeOK();
-            sr.setResponseHeaders(response.request);
-            //sr.setRequestHeaders(response.request);
+            sr.setResponseHeaders(response.requestSent);
         }
         catch (Exception ex)
         {
@@ -220,8 +218,15 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         {
             sr.setResponseData(message);
             sr.sampleEnd();
-            if (sr.getLatency() == 0)
-                sr.setLatency(System.currentTimeMillis() - start);
+            long latency = System.currentTimeMillis() - start;
+            sr.setLatency(latency);
+            /*
+             * A6x reports the latency via thrift. the following logic will
+             * figure out the connection pooling time... the following applies
+             * only for A6x clients. rest will set the latency = 0
+             */
+            if (response != null && response.latency_in_ms != 0)
+                sr.setIdleTime(latency - response.latency_in_ms);
         }
         return sr;
     }
@@ -230,60 +235,68 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
 
     public static class ResponseData
     {
-        public final String response;
+        protected static final String EXECUTED_ON = "Executed on: ";
+        protected static final String ROW_KEY = "Row Key: ";
+        protected static final String COLUMN_NAME = "Column Name: ";
+        protected static final String COLUMN_VALUE = "Column Value: ";
+
+        public final String responseRecived;
+        public final String requestSent;
         public final int size;
-        public String request = "";
-        public long latency = 0;
-        private String EXECUTED_ON = "Executed on: ";
-        private String ROW_KEY = "Row Key: ";
-        private String CN = "Column Name: ";
-        private String CV = "Column Value: ";
+        public final long latency_in_ms;
 
-        public ResponseData(String response, int size, OperationResult result)
+        protected ResponseData(String response, int size, String requestSent, long latency)
         {
-            this.response = response;
+            this.responseRecived = response;
             this.size = size;
-            if (null != result)
-            {
-                this.request = "Executed on:" + result.getHost();
-                this.latency = result.getLatency();
-            }
+            this.requestSent = requestSent;
+            this.latency_in_ms = latency;
         }
 
-        public ResponseData(String response, int size, String host)
+        public ResponseData(String response, int size, String request)
         {
-            this.response = response;
-            this.size = size;
-            this.request = "Executed on: " + host;
+            this(response, size, EXECUTED_ON + request, 0);
         }
 
-        public ResponseData(String response, int size, String host, Object key, Object cn, Object value)
+        public ResponseData(String response, int size, String host, long latency, Object key, Object cn, Object value)
         {
-            this.response = response;
-            this.size = size;
+            this(response, size, constructRequest(host, key, cn, value), latency);
+        }
+
+        public ResponseData(String response, int size, String host, long latency, Object key, Map<?, ?> kv)
+        {
+            this(response, size, constructRequest(host, key, kv), latency);
+        }
+        
+        private static String constructRequest(String host, Object key, Object cn, Object value)
+        {
             StringBuffer buff = new StringBuffer();
+            appendHostAndRowKey(buff, host, key);
+            appendKeyValue(buff, cn, value);
+            return buff.toString();
+        }
+
+        private static String constructRequest(String host, Object key, Map<?, ?> nv)
+        {
+            StringBuffer buff = new StringBuffer();
+            appendHostAndRowKey(buff, host, key);
+            for (Map.Entry<?, ?> entry : nv.entrySet())
+                appendKeyValue(buff, entry.getKey(), entry.getValue());
+            return buff.toString();
+        }
+        
+        private static void appendHostAndRowKey(StringBuffer buff, String host, Object key)
+        {
             buff.append(EXECUTED_ON).append(host).append(SystemUtils.NEW_LINE);
-            buff.append(ROW_KEY).append(key).append(SystemUtils.NEW_LINE);
+            buff.append(ROW_KEY).append(key).append(SystemUtils.NEW_LINE);            
+        }
+
+        private static void appendKeyValue(StringBuffer buff, Object cn, Object value)
+        {
             if (cn != null)
-                buff.append(CN).append(cn).append(SystemUtils.NEW_LINE);
+                buff.append(COLUMN_NAME).append(cn).append(SystemUtils.NEW_LINE);
             if (value != null)
-                buff.append(CV).append(value).append(SystemUtils.NEW_LINE);
-            this.request = buff.toString();
-        }
-
-        public ResponseData(String response, int size, String host, Object key, Map<?, ?> nv)
-        {
-            this.response = response;
-            this.size = size;
-            StringBuffer buff = new StringBuffer();
-            buff.append(EXECUTED_ON).append(host).append(SystemUtils.NEW_LINE);
-            buff.append(ROW_KEY).append(key).append(SystemUtils.NEW_LINE);
-            for (java.util.Map.Entry<?, ?> entry : nv.entrySet())
-            {
-                buff.append(CN).append(entry.getKey()).append(SystemUtils.NEW_LINE);
-                buff.append(CV).append(entry.getValue()).append(SystemUtils.NEW_LINE);
-            }
-            this.request = buff.toString();
+                buff.append(COLUMN_VALUE).append(value).append(SystemUtils.NEW_LINE);
         }
     }
 
@@ -294,12 +307,12 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         AbstractSerializer<?> cser = serialier(getCSerializerType());
         ops.serlizers(kser, cser, vser);
     }
-    
+
     public void setCounter(boolean selected)
     {
         setProperty(IS_COUNTER, selected);
     }
-    
+
     public boolean isCounter()
     {
         return getPropertyAsBoolean(IS_COUNTER);

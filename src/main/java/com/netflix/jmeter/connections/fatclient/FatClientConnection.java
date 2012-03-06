@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 
 import org.apache.cassandra.service.StorageService;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,5 +83,11 @@ public class FatClientConnection extends Connection
                 Properties.instance.cassandra.getReadConsistency(), 
                 Properties.instance.cassandra.getKeyspace(), 
                 columnName);
+    }
+
+    @Override
+    public String logConnections()
+    {
+        return "Live Nodes: " + StringUtils.join(StorageService.instance.getLiveNodes(), ",");
     }
 }

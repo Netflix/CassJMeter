@@ -1,24 +1,29 @@
 package com.netflix.jmeter.properties;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.netflix.jmeter.connections.a6x.AstyanaxConnection;
+
 public class Properties
 {
+    private static final Logger logger = LoggerFactory.getLogger(AstyanaxConnection.class);
     public static final Properties instance = new Properties();
     public CassandraProperties cassandra;
-    public SchemaProperties schema;
     public FatclientProperties fatclient;
+    private List<SchemaProperties> schemas = new ArrayList<SchemaProperties>();
 
-    public boolean isCassandra()
+    public void addSchema(SchemaProperties newProp)
     {
-        return cassandra != null;
+        schemas.add(newProp);
+        logger.info("Queing schema change for the cf: {}", newProp);
     }
-
-    public boolean isSchema()
+    
+    public List<SchemaProperties> getSchemas()
     {
-        return schema != null;
-    }
-
-    public boolean isFatClient()
-    {
-        return fatclient != null;
+        return schemas;
     }
 }

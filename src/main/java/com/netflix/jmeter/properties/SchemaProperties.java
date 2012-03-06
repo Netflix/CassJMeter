@@ -19,7 +19,7 @@ public class SchemaProperties extends ConfigTestElement implements TestBean
 
     public SchemaProperties()
     {
-        Properties.instance.schema = this;
+        Properties.instance.addSchema(this);
     }
 
     public String getStrategy_options()

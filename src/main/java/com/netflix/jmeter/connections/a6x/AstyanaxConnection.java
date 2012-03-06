@@ -4,16 +4,18 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.Properties;
 
-import org.apache.cassandra.utils.FBUtilities;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.netflix.astyanax.AstyanaxContext;
+import com.netflix.astyanax.AstyanaxContext.Builder;
 import com.netflix.astyanax.Keyspace;
 import com.netflix.astyanax.connectionpool.LatencyScoreStrategy;
 import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolType;
-import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
+import com.netflix.astyanax.connectionpool.impl.Slf4jConnectionPoolMonitorImpl;
 import com.netflix.astyanax.connectionpool.impl.SmaLatencyScoreStrategyImpl;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.model.ConsistencyLevel;
@@ -24,9 +26,11 @@ import com.netflix.jmeter.sampler.Operation;
 
 public class AstyanaxConnection extends Connection
 {
-    public static AstyanaxConnection instance = new AstyanaxConnection();
+    private static final Logger logger = LoggerFactory.getLogger(AstyanaxConnection.class);
+    public static final AstyanaxConnection instance = new AstyanaxConnection();
     public Properties config = new Properties();
     private Keyspace keyspace;
+    private Slf4jConnectionPoolMonitorImpl connectionPoolMonitor;
 
     public Keyspace keyspace()
     {
@@ -38,36 +42,54 @@ public class AstyanaxConnection extends Connection
             // double check...
             if (keyspace != null)
                 return keyspace;
+
             try
             {
                 File propFile = new File("cassandra.properties");
                 if (propFile.exists())
                     config.load(new FileReader(propFile));
-                AstyanaxConfigurationImpl configuration = new AstyanaxConfigurationImpl()
-                        .setDiscoveryType(NodeDiscoveryType.valueOf(config.getProperty("astyanax.connection.discovery", "NONE")))
-                        .setConnectionPoolType(ConnectionPoolType.valueOf(config.getProperty("astyanax.connection.pool", "ROUND_ROBIN")))
-                        .setDefaultReadConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getReadConsistency()))
-                        .setDefaultWriteConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getWriteConsistency()));
-                
+
+                AstyanaxConfigurationImpl configuration = new AstyanaxConfigurationImpl();
+                configuration.setDiscoveryType(NodeDiscoveryType.valueOf(config.getProperty("astyanax.connection.discovery", "NONE")));
+                configuration.setConnectionPoolType(ConnectionPoolType.valueOf(config.getProperty("astyanax.connection.pool", "ROUND_ROBIN")));
+                configuration.setDefaultReadConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getReadConsistency()));
+                configuration.setDefaultWriteConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getWriteConsistency()));
+
+                logger.info("AstyanaxConfiguration: " + configuration.toString());
+
                 String property = config.getProperty("astyanax.connection.latency.stategy", "SmaLatencyScoreStrategyImpl");
-                String maxConnection = com.netflix.jmeter.properties.Properties.instance.cassandra.getMaxConnsPerHost();
-                ConnectionPoolConfigurationImpl poolConfig = new ConnectionPoolConfigurationImpl(getClusterName())
-                                                .setPort(port)
-                                                .setMaxConnsPerHost(Integer.parseInt(maxConnection))
-                                                .setSeeds(StringUtils.join(endpoints, ":" + port + ","));
+                LatencyScoreStrategy latencyScoreStrategy;
                 if (property.equalsIgnoreCase("SmaLatencyScoreStrategyImpl"))
-                    poolConfig.setLatencyScoreStrategy(new SmaLatencyScoreStrategyImpl(poolConfig));
+                {
+                    int updateInterval = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.updateInterval", "5000"));
+                    int resetInterval = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.resetInterval", "5000"));
+                    int windowSize = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.windowSize", "100"));
+                    double badnessThreshold = Double.parseDouble(config.getProperty("astyanax.connection.latency.stategy.badnessThreshold", "0.1"));
+                    latencyScoreStrategy = new SmaLatencyScoreStrategyImpl(updateInterval, resetInterval, windowSize, badnessThreshold);
+                }
                 else
-                    poolConfig.setLatencyScoreStrategy(new EmptyLatencyScoreStrategyImpl());
+                {
+                    latencyScoreStrategy = new EmptyLatencyScoreStrategyImpl();
+                }
+
+                String maxConnection = com.netflix.jmeter.properties.Properties.instance.cassandra.getMaxConnsPerHost();
+                ConnectionPoolConfigurationImpl poolConfig = new ConnectionPoolConfigurationImpl(getClusterName()).setPort(port);
+                poolConfig.setMaxConnsPerHost(Integer.parseInt(maxConnection));
+                poolConfig.setSeeds(StringUtils.join(endpoints, ":" + port + ","));
+                poolConfig.setLatencyScoreStrategy(latencyScoreStrategy);
                 
-                AstyanaxContext<Keyspace> context = new AstyanaxContext.Builder()
-                        .forCluster(getClusterName())
-                        .forKeyspace(getKeyspaceName())
-                        .withAstyanaxConfiguration(configuration)
-                        .withConnectionPoolConfiguration(poolConfig)
-                        .withConnectionPoolMonitor(new CountingConnectionPoolMonitor())
-                        .buildKeyspace(ThriftFamilyFactory.getInstance());
+                logger.info("ConnectionPoolConfiguration: " + poolConfig.toString());
                 
+                // set this as field for logging purpose only.
+                connectionPoolMonitor = new Slf4jConnectionPoolMonitorImpl();
+                Builder builder = new AstyanaxContext.Builder();
+                builder.forCluster(getClusterName());
+                builder.forKeyspace(getKeyspaceName());
+                builder.withAstyanaxConfiguration(configuration);
+                builder.withConnectionPoolConfiguration(poolConfig);
+                builder.withConnectionPoolMonitor(connectionPoolMonitor);
+
+                AstyanaxContext<Keyspace> context = builder.buildKeyspace(ThriftFamilyFactory.getInstance());
                 context.start();
                 keyspace = context.getEntity();
                 return keyspace;
@@ -82,5 +104,11 @@ public class AstyanaxConnection extends Connection
     public Operation newOperation(String columnName, boolean isCounter)
     {
         return new AstyanaxOperation(columnName, isCounter);
+    }
+
+    @Override
+    public String logConnections()
+    {
+        return connectionPoolMonitor.toString();
     }
 }
