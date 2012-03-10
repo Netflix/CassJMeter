@@ -17,6 +17,7 @@ import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolType;
 import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
+//import com.netflix.astyanax.connectionpool.impl.Slf4jConnectionPoolMonitorImpl;
 import com.netflix.astyanax.connectionpool.impl.SmaLatencyScoreStrategyImpl;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.model.ConsistencyLevel;
@@ -31,7 +32,8 @@ public class AstyanaxConnection extends Connection
     public static final AstyanaxConnection instance = new AstyanaxConnection();
     public Properties config = new Properties();
     private Keyspace keyspace;
-    private ConnectionPoolMonitor connectionPoolMonitor;
+    //private ConnectionPoolMonitor connectionPoolMonitor = new Slf4jConnectionPoolMonitorImpl();;
+    private ConnectionPoolMonitor connectionPoolMonitor = new CountingConnectionPoolMonitor();
 
     public Keyspace keyspace()
     {
@@ -58,16 +60,15 @@ public class AstyanaxConnection extends Connection
 
                 logger.info("AstyanaxConfiguration: " + configuration.toString());
 
-                String property = config.getProperty("astyanax.connection.latency.stategy", "SmaLatencyScoreStrategyImpl");
-                LatencyScoreStrategy latencyScoreStrategy;
+                String property = config.getProperty("astyanax.connection.latency.stategy", "EmptyLatencyScoreStrategyImpl");
+                LatencyScoreStrategy latencyScoreStrategy = null;
                 if (property.equalsIgnoreCase("SmaLatencyScoreStrategyImpl"))
                 {
-                    int updateInterval = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.updateInterval", "5000"));
-                    int resetInterval = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.resetInterval", "5000"));
+                    int updateInterval = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.updateInterval", "2000"));
+                    int resetInterval = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.resetInterval", "10000"));
                     int windowSize = Integer.parseInt(config.getProperty("astyanax.connection.latency.stategy.windowSize", "100"));
                     double badnessThreshold = Double.parseDouble(config.getProperty("astyanax.connection.latency.stategy.badnessThreshold", "0.1"));
                     // latencyScoreStrategy = new SmaLatencyScoreStrategyImpl(updateInterval, resetInterval, windowSize, badnessThreshold);
-                    latencyScoreStrategy = new EmptyLatencyScoreStrategyImpl();
                 }
                 else
                 {
@@ -83,14 +84,13 @@ public class AstyanaxConnection extends Connection
                 logger.info("ConnectionPoolConfiguration: " + poolConfig.toString());
                 
                 // set this as field for logging purpose only.
-                //connectionPoolMonitor = new Slf4jConnectionPoolMonitorImpl();
-                connectionPoolMonitor = new CountingConnectionPoolMonitor();
                 Builder builder = new AstyanaxContext.Builder();
                 builder.forCluster(getClusterName());
                 builder.forKeyspace(getKeyspaceName());
                 builder.withAstyanaxConfiguration(configuration);
                 builder.withConnectionPoolConfiguration(poolConfig);
                 builder.withConnectionPoolMonitor(connectionPoolMonitor);
+                builder.withConnectionPoolMonitor(new CountingConnectionPoolMonitor());
 
                 AstyanaxContext<Keyspace> context = builder.buildKeyspace(ThriftFamilyFactory.getInstance());
                 context.start();
