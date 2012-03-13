@@ -1,0 +1,678 @@
+#!/bin/bash
+#
+# casstat
+# By Denis Sheahan, Netflix Inc.
+#
+# Introduction
+# Casstat is a command line tool that monitors various aspects of Cassandra performance.  
+# It is runs on the Cassandra node itself and is modeled on the classic Unix tools like 
+# vmstat and mpstat.  It is designed to be always on, running in the background redirecting 
+# it's output to a file.  It has the ability to tag each line of output with an Epoch or 
+# timestamp so the data can be correlated with an event
+#
+# Note casstat was designed to run on EC2 instances in the cloud
+# 
+# Design
+# ------
+# Casstat is a bash script that calls other tools at regular intervals, compares the data 
+# with its previous sample and normalizes it on a per second basis.  The tools it uses are
+# 
+# o Cassandra nodetool cfstats to get Column Family performance data 
+# o nodetool tpstats to get internal state changes
+# o nodetool cfhistograms to get 95th and 99th percentile response times
+# o nodetool compactionstats to get details on number and type of compactions
+# o iostat to get disk and cpu performance data
+# o ifconfig to calculate network bandwidth
+# o The cassandra log for interesting events
+#
+# casstat assumes these tools are in the PATH
+# 
+# Sections of casstat output
+# --------------------------
+# casstat has a number of default sections that are always emmited - 
+# see the options section for on turning out optional extra stats.  
+# 
+# The first section is Reads and Writes per second on this node and the average latency 
+# in milliseconds of these transactions.  Note this is average since cluster boot time.  
+# It also provides 99th and 95th percentiles as well, see below.  In this example there are 
+# only reads occurring on this node with an average latency of 0.1 - 0.2ms
+# 
+# Epoch      Rds/s   RdLat   Wrts/s  WrtLat
+# 1320279185 553     0.219    0      0.000
+# 1320279197 203     0.219    0      0.000
+# 1320279208 244     0.177    0      0.000
+# 1320279220 330     0.101    0      0.000
+# 1320279232 567     0.196    0      0.000
+# 1320279243 882     0.215    0      0.000
+# 1320279255 666     0.183    0      0.000
+# 
+# The second section is the breakdown of cpu time spent.  There is percent user, system,idle, 
+# iowait and steal
+# 
+# %user   %system %idle   %iowait %steal
+#  0.93     0.36  98.56    0.00    0.15
+#  1.16     0.34  98.35    0.00    0.15
+#  0.84     0.39  98.59    0.00    0.19   
+#  1.69     0.55  97.57    0.00    0.19
+#  1.52     0.46  97.84    0.01    0.16
+#  1.19     0.44  98.21    0.00    0.16
+#
+# The third section is the disk statistics on this node.  The disk to dump is specified with the
+# -o parameter, this can be a stripe such as md0 or individual disks, only 1 is dumped
+# 
+# md0r/s  w/s     rMB/s   wMB/s
+#  0.00   0.40    0.00    0.00
+#  0.00   0.50    0.00    0.00
+#  0.00   0.00    0.00    0.00
+#  0.00   0.10    0.00    0.00
+#  0.00   0.30    0.00    0.00
+#  0.00   0.80    0.00    0.00
+#  0.00   0.30    0.00    0.00
+# 
+# The final default section is Network Bandwidth in Kilo-bits per second
+# 
+# NetRxKb NetTxKb
+# 23866   51476
+# 23058   36835
+# 19896   35025
+# 
+# Options
+# -------
+# casstat -h for command line options
+# 
+# casstat -h
+# usage: /tmp/casstat options
+#  
+# OPTIONS:
+#    -e             Include Epoch per line
+#    -t             Include Timestamp per line
+#    -d <file location> Location of log for scraping
+#    -l <filename>  Dump log events to a seperate file
+#    -i <interval>  Set interval, default 10
+#    -k <keyspace>  Keyspace to monitor
+#    -c <column family>  Column Family to monitor
+#    -o <disk name> Stripe or disk to monitor
+#    -f <network name> Network interface to monitor
+#    -x             Dont dump headers
+#    -r             Read Repair stats
+#    -p             Compaction stats
+#    -s             Response time percentiles - must specify CF
+#    -j             Keycache and Read stage stats
+#    -n <count>     Number of samples to take
+# 
+# 
+# An explanation of each option is as follows
+# 
+# -i <interval> :  By default casstat samples at a rate of 10 seconds.  
+#                  Use this option to change the sampling interval.  The minimum allowed is 2 seconds
+# 
+# -e:   Prepends each line of output with the current epoch value.  This is useful in 
+#                correlating data from multiple nodes together avoiding all the conversion 
+#                of dates
+# 
+#        Epoch       Rds/s   RdLat   Wrts/s  .....
+#        1320249291  138 62.997  1620    ....
+#        1320249301  129 94.332  1804    ....
+# 
+# -t:   Prepends a timestamp to each line of output.  This is more 
+#         human readable but harder to post-process
+# 
+# Time Rds/s RdLat Wrts/s WrtLat %user %system %idle %iowait %steal md0r/s w/s rMB/s wMB/s NetRxKb NetTxKb
+# 23:51:08    0    0.000  0    0.000  ...
+# 23:51:08 0  0.000 0  0.000  0.78 0.03 99.20 0.00 0.00 0.00 0.90 0.00 0.00 129 23
+# 
+# -l <log_name>:  casstat scrapes the cassandra logs for interesting events.  
+#        For instance when a compaction completes you get the output below.  
+#        The -l option lets you redirect this output to a different file.  t reduces the clutter in the casstat output
+# 
+#        23:20:44,945 <Compaction Completed>
+#
+# -k <keyspace>:  This parameter is required and specifies the Keyspace you wish to monitor.  
+#                 Behavior is undefined if -k is not supplied
+# 
+# -c <Column Family> :  Specifies the Column family to monitor.   If none is specified then 
+#                       x`stats for the whole Keyspace will be displayed
+# 
+# -x:   By default casstat will dump a banner in the output every 10 samples (see example 
+#       below).  This option supresses this output
+# 
+# Epoch       Rds/s   RdLat   Wrts/s  WrtLat  %user   %system %idle   %iowait %steal  md0r/s  w/s rMB/s   wMB/s   NetRxKb NetTxKb
+
+# -n <number> :  By default casstat runs for ever, this parameter limits the number of 
+#                samples emmited and then casstat will terminate
+# 
+# -r :   This parameter adds a column indicating the number of times a thread entered the 
+#        Read Repair stage.  This value can be useful if the read-repair-chance parameter 
+#        is non zero for the column family and you need an indication of the number of rows 
+#        that need repair (for instance after a node restore).
+# 
+# ....    NetRxKb NetTxKb RdRep
+# ....      333     19      0
+# ....      45     269      0
+#
+# -p:  This parameter dumps statistics about the current executing and pending compactions.  
+#      The first field is always* Pen* - the number pending.  After that is a variable number 
+#      of fields depending on the number of active compactions.  Compaction types can be 
+#      one of 
+# 
+# Min - Minor
+# Maj - Major
+# Val - Validation
+#
+# In the example below there are two active minor compactions and one finishes 
+# after 10 seconds
+# 
+#  .... Pen/4 Min/58%  Min/99%
+#  .... Pen/2 Min/59%
+#  .... Pen/2 Min/62%
+# 
+# -s: This parameter dumps the 99th and 95th response times for both reads and writes in 
+#     the last sample period.  If there were no transactions these numbers will be 0.00
+#
+# Percentiles     Read            Write                   Compacts
+# 
+# 99th  0.642 ms 95th  0.446 ms 99th 0.00 ms 95th 0.00 ms Pen/0
+# 99th  0.642 ms 95th  0.446 ms 99th 0.00 ms 95th 0.00 ms Pen/0
+# 
+# 99th  0.535 ms 95th  0.446 ms 99th 0.00 ms 95th 0.00 ms Pen/0
+#
+#  -j:  This option dumps information on the Key Cache hit rate and the number of times 
+#       threads were in the Read Stage or waiting to do so
+#
+# -d: Location of log for scraping.  This must be specified or the logs will not be used
+#
+# -o: Disk to dump the iostat statistics.  Can be a stripe such as md0 or a individual disk 
+#     such as sdb
+#
+# -f: Network interface to dump stats for
+#
+
+
+usage()
+{
+cat << EOF
+usage: $0 options
+
+OPTIONS:
+   -e             Include Epoch per line
+   -t             Include Timestamp per line
+   -d <file location> Location of log for scraping
+   -l <filename>  Dump log events to a seperate file
+   -i <interval>  Set interval, default 10
+   -k <keyspace>  Keyspace to monitor
+   -c <column family>  Column Family to monitor
+   -o <disk name> Stripe or disk to monitor
+   -f <network name> Network interface to monitor
+   -x             Dont dump headers
+   -r             Read Repair stats
+   -p             Compaction stats
+   -s             Response time percentiles - must specify CF
+   -j             Keycache and Read stage stats
+   -n <count>     Number of samples to take
+EOF
+}
+
+
+header()
+{
+if [ $timestamp_include -eq 1 ]
+then
+   printf "Time\t\t"
+fi
+
+if [ $epoch_include -eq 1 ]
+then
+    printf "Epoch\t\t"
+fi
+printf "Rds/s\tRdLat\tWrts/s\tWrtLat\t"
+
+if [ $rdstage -eq 1 ]
+then
+
+# If we are looking at a whole Keyspace there could be multiple key caches
+  i=0
+  while [ $i -lt $num_keycaches ]
+  do
+    printf "K\$$i%%\t"
+    i=$(expr $i + 1)
+  done
+
+# If we are looking at a whole Keyspace there could be multiple key caches`
+  i=0
+  while [ $i -lt $num_rowcaches ]
+  do
+    printf "\tR\$$i%%\t"
+    i=$(expr $i + 1)
+  done
+
+  printf "RdAct\tRdPnd\t"
+fi
+
+if [ "$net_name" != "" ]
+then
+  real_net=`/sbin/ifconfig $net_name 2>&1 | awk ' BEGIN{found=1} /Device not found/ {found= 0} END{print found}'`
+else
+  real_net=0;
+fi
+
+printf "%%user\t%%system\t%%idle\t%%iowait\t%%steal\t%sr/s\tw/s\trMB/s\twMB/s\tNetRxKb\tNetTxKb" $disk_name
+
+
+if [ $read_rep -eq 1 ]
+then
+  printf "\tRdRep"
+fi
+
+
+if [ $percentile -eq 1 ]
+then
+printf "\tPercentiles\tRead\t\tWrite"
+fi
+
+if [ $compact -eq 1 ]
+then
+  printf "\tCompacts"
+fi
+printf "\n"
+
+}
+
+epoch_include=0
+timestamp_include=0
+log_updates=
+disk_name=Nne
+net_name=
+interval=10
+keyspace=
+columnfamily=none
+do_header=1
+read_rep=0
+compact=0
+percentile=0
+rdstage=0
+use_dev_shm=0
+sample_count=100000
+
+
+while getopts “hexprstjl:i:k:c:n:d:o:f:” OPTION
+do
+     case $OPTION in
+         h)
+             usage
+             exit 1
+             ;;
+         e)
+             epoch_include=1
+             ;;
+         d)
+             log_location=$OPTARG
+             ;;
+         x)
+             do_header=0
+             ;;
+         p)
+             compact=1
+             ;;
+         r)
+             read_rep=1
+             ;;
+         s)
+             percentile=1
+             ;;
+         j)
+             rdstage=1
+             ;;
+         t)
+             timestamp_include=1
+             ;;
+         l)
+             log_updates=$OPTARG
+             ;;
+         o)
+             disk_name=$OPTARG
+             ;;
+         f)
+             net_name=$OPTARG
+             ;;
+         i)
+             interval=$OPTARG
+             ;;
+         k)
+             keyspace=$OPTARG
+             ;;
+         c)
+             columnfamily=$OPTARG
+             ;;
+         n)
+             sample_count=$OPTARG
+             ;;
+         ?)
+             usage
+             exit
+             ;;
+     esac    
+done         
+
+if [ "$keyspace" == "" ]
+then
+echo "Keyspace must be specified - exiting" 
+exit
+fi
+
+
+# By default casstat displays major events from the system log as they occur
+# We can redirect the output to a seperate file
+if [ "$log_updates" != "" ]
+ then
+  if [ -f $log_updates ]
+   then
+    rm $log_updates
+ fi
+fi
+
+if [ "$log_location" != "" ]
+then
+  prev_log_length=`cat $log_location | wc -l`
+fi
+
+
+
+prev_r_count=0
+prev_w_count=0
+prev_read_repair=0
+
+# This bit is tricky
+# If only Keyspace is specified then we look at the overall reads / writes
+# If a Column family is also sepcified we drill down to it and use its stats
+# extract the section of the stats and stash them for later comparison
+
+if [ "$columnfamily" == "none" ]
+then
+  nodetool -h localhost -p 7501 cfstats | awk -v keyspace="$keyspace"  ' \
+          /Keyspace:/ {if ($2==keyspace) {dumping=1;print $0;next} if (dumping==1) dumping = 0} 
+                      { if (dumping==1) print $0} '  > /tmp/cfsg
+# Stash the count for next round
+   prev_r_count=`cat /tmp/cfsg | head -5 | grep "Read Count"  | awk '{print $3}'`
+   prev_w_count=`cat /tmp/cfsg | head -5 | grep "Write Count"  | awk '{print $3}'`
+else
+  nodetool -h localhost -p 7501 cfstats | awk -v keyspace="$keyspace"  -v columnfamily="$columnfamily" ' \
+          /Keyspace:/ {if ($2==keyspace) {found_keyspace=1;next} else {if (dumping==1) {dumping=0}}}  
+          /Column Family:/ { if ((found_keyspace==1) && ($3==columnfamily)) {dumping=1;found_keyspace=0;print $0;next} else {if (dumping==1) {dumping=0}} }
+                           { if (dumping==1) print $0 } '  > /tmp/cfsg
+# Stash the count for next round
+   prev_r_count=`cat /tmp/cfsg |  grep "Read Count"  | awk '{print $3}'`
+   prev_w_count=`cat /tmp/cfsg |  grep "Write Count"  | awk '{print $3}'`
+fi
+
+if [ $read_rep -eq 1 ]
+then
+  nodetool -h localhost -p 7501 tpstats | awk ' \
+  /ReadRepairStage/ {print $4 > "/tmp/read_repair" } '
+
+  prev_read_repair=`cat /tmp/read_repair`
+fi
+
+
+num_keycaches=`grep -c "Key cache hit rate" /tmp/cfsg`
+num_rowcaches=`grep -c "Row cache hit rate" /tmp/cfsg`
+
+header
+
+header_count=0
+
+# get our first iostat and log
+if [ $real_net -eq 1 ]
+then
+prev_rx_bytes=`/sbin/ifconfig $net_name | grep "RX bytes" | cut -d: -f2 | awk '{ printf $1 }'`
+prev_tx_bytes=`/sbin/ifconfig $net_name | grep "TX bytes" | awk ' {print $6}' | cut -d: -f2 | awk '{ printf $1 }'`
+fi
+
+
+if [ $percentile -eq 1 ]
+then
+   if [ "$columnfamily" == "none" ]
+   then
+      printf "CF must be specified for percentile calculation"
+      exit
+   fi
+
+   nodetool -h localhost -p 7501 cfhistograms $keyspace $columnfamily > /tmp/histo
+fi
+
+# iostat also acts as the initial delay
+iostat -tmx $interval 2 > /tmp/ios-temp 
+# Number of disks varies with the AWS instance type
+number_disks=`cat  /tmp/ios-temp | awk 'BEGIN{count=0}/xvd/ {count++} END{print (count/2)} '`
+
+
+this_sample=0
+while [  $this_sample -lt $sample_count ]
+do
+
+if [ $do_header -eq 1 ]
+then 
+  if [ $header_count -eq 10 ]
+  then
+    header
+    header_count=0
+  else
+   header_count=$(expr $header_count + 1)
+  fi
+fi
+
+if [ "$log_location" != "" ]
+then
+
+
+if [ "$log_updates" == "" ]
+then
+
+# What's new in the system log
+current_log_length=`cat $log_location | wc -l`
+
+cat $log_location  | awk -v current_log_length="$current_log_length" -v prev_log_length="$prev_log_length" ' \
+    {if ((NR > prev_log_length) && (NR <= current_log_length)){print $0}}'  | awk ' \
+   /Creating new commitlog/ { printf ("%s <Creating new commitlog>\n",$4) } \
+   /Completed flushing/ { printf ("%s <Completed flushing>\n",$4) } \
+   /Compacting Major/ { printf ("%s <Compacting Major>\n",$4) } \
+   /Sending AEService tree/ { printf ("%s <Sending AEService tree> to %s %s %s \n",$4,$14, $15, $16) } \
+   /Starting repair/ { printf ("%s  <Starting repair>  %s ranges\n",$6,$15) } \
+   /Repair session manual-repair/ { printf ("%s <Repair session manual-repair> range %s\n",$4,$15) } \
+   /Performing streaming repair/ { printf ("%s <Performing streaming repair>  %s ranges with %s range  %s\n",$4,$12, $15, $17 ) } \
+   /Finished streaming repair/ { printf ("%s  <Finished streaming repair>\n",$6) } \
+   /Repair command/ { printf ("%s  <Finished streaming repair>\n",$6) } \
+   /Compacted to/ { printf ("%s <Compaction Completed>\n",$4) } ' 
+
+else
+
+cat $log_location  | awk -v current_log_length="$current_log_length" -v prev_log_length="$prev_log_length" ' \
+    {if ((NR > prev_log_length) && (NR <= current_log_length)){print $0}}'  | awk ' \
+   /Creating new commitlog/ { printf ("%s <Creating new commitlog>\n",$4) } \
+   /Completed flushing/ { printf ("%s <Completed flushing>\n",$4) } \
+   /Compacting Major/ { printf ("%s <Compacting Major>\n",$4) } \
+   /Sending AEService tree/ { printf ("%s <Sending AEService tree> to %s %s %s \n",$4,$14, $15, $16) } \
+   /Starting repair/ { printf ("%s  <Starting repair>  %s ranges\n",$6,$15) } \
+   /Repair session manual-repair/ { printf ("%s <Repair session manual-repair> range %s\n",$4,$15) } \
+   /Performing streaming repair/ { printf ("%s <Performing streaming repair>  %s ranges with %s range  %s\n",$4,$12, $15, $17 ) } \
+   /Finished streaming repair/ { printf ("%s  <Finished streaming repair>\n",$6) } \
+   /Repair command/ { printf ("%s  <Finished streaming repair>\n",$6) } \
+   /Compacted to/ { printf ("%s <Compaction Completed>\n",$4) } ' >> $log_updates
+fi
+
+prev_log_length=$current_log_length
+
+fi
+
+# Extract whole Keyspace or single Column family 
+
+if [ "$columnfamily" == "none" ]
+then
+  nodetool -h localhost -p 7501 cfstats | awk -v keyspace="$keyspace"  ' \
+     /Keyspace:/ {if ($2==keyspace) {dumping=1;print $0;next} if (dumping==1) dumping = 0} 
+                 { if (dumping==1) print $0} '  > /tmp/cfsg
+else
+  nodetool -h localhost -p 7501 cfstats | awk -v keyspace="$keyspace"  -v columnfamily="$columnfamily" ' \
+     /Keyspace:/ {if ($2==keyspace) {found_keyspace=1;next} else {if (dumping==1) {dumping=0}}}  
+     /Column Family:/ { if ((found_keyspace==1) && ($3==columnfamily)) {dumping=1;found_keyspace=0;print $0;next} else {if (dumping==1) {dumping=0}} }
+                      { if (dumping==1) print $0 } '  > /tmp/cfsg
+fi
+
+
+# Is this node alive?
+nodet_success=`cat /tmp/cfsg | wc -l`
+
+if [ $nodet_success -ne 0 ]
+then
+
+  if [ $timestamp_include -eq 1 ]
+  then
+     tstmp=`date +%k:%M:%S`
+     printf "%s\t" $tstmp
+  fi
+  if [ $epoch_include -eq 1 ]
+  then
+    epoch=`date +%s`
+    printf "%d\t" $epoch
+  fi
+
+# Extract the Keyspace nodetool data
+if [ "$columnfamily" == "none" ]
+then
+   cat /tmp/cfsg |head -5 | awk -v interval="$interval" -v prev_w_count="$prev_w_count" -v prev_r_count="$prev_r_count" ' \
+     /Read Count:/ {printf ("%d\t",($3-prev_r_count)/interval);} \
+     /Read Latency:/ {printf ("%6.3f\t",$3); } \
+     /Write Count:/ {printf ("%d\t",($3-prev_w_count)/interval);}  \
+     /Write Latency:/ {printf ("%6.3f\t ",$3); } '
+
+# Stash the count for next round
+   prev_r_count=`cat /tmp/cfsg | head -5 | grep "Read Count"  | awk '{print $3}'`
+   prev_w_count=`cat /tmp/cfsg | head -5 | grep "Write Count"  | awk '{print $3}'`
+else
+# Extract the Column Family nodetool data
+   cat /tmp/cfsg | awk -v interval="$interval" -v prev_w_count="$prev_w_count" -v prev_r_count="$prev_r_count" ' \
+      /Read Count:/ {printf ("%d\t",($3-prev_r_count)/interval);} \
+      /Read Latency:/ {printf ("%6.3f\t",$3); } \
+      /Write Count:/ {printf ("%d\t",($3-prev_w_count)/interval);}  \
+      /Write Latency:/ {printf ("%6.3f\t ",$3); } '
+
+# Stash the count for next round
+   prev_r_count=`cat /tmp/cfsg |  grep "Read Count"  | awk '{print $3}'`
+   prev_w_count=`cat /tmp/cfsg |  grep "Write Count"  | awk '{print $3}'`
+
+fi
+
+if [ $rdstage -eq 1 ]
+then
+
+
+# Key cache and Row cache hit rates
+cat /tmp/cfsg | awk '
+   /Key cache hit rate/ {if ($5 == "NaN") {printf ("0\t")} else {printf ("%d\t",$5*100)}} \
+   /Row cache hit rate/ {printf ("%d\t",$5*100)} '
+
+# ReadStage stats
+nodetool -h localhost -p 7501 tpstats | awk ' \
+/ReadStage/ {printf ("%d\t%d\t",$2,$3) } '
+
+fi
+
+
+# Get the disk statistics, we show the md0 otherwise dashes
+#lines_to_tail=$(expr $number_disks + 6)
+#tail -$lines_to_tail /tmp/ios-temp | awk ' \
+cat /tmp/ios-temp | awk -v disk_name="$disk_name" ' \
+   BEGIN{sec_avg=0;sec_md0=0}
+   /avg-cpu/ {if (sec_avg==0) {sec_avg++} else {cpu_line=(NR+1)}}
+   {if (NR==cpu_line) printf("%s\t%s\t%s\t%s\t%s\t", $1, $3, $6, $4, $5 ); } 
+   $0 ~ disk_name  { if(sec_md0==0){sec_md0++} else{printf("%s\t%s\t%s\t%s", $4, $5, $6, $7); }} END{if(sec_md0==0){printf "---\t---\t---\t---"}}'
+
+# Get the network statistics
+if [ $real_net -eq 1 ]
+then
+  /sbin/ifconfig $net_name | grep "RX bytes" | cut -d: -f2 | awk -v prev_rx_bytes="$prev_rx_bytes" -v interval="$interval" ' \
+     { printf ("\t%d",  ((($1-prev_rx_bytes)/interval)*8) / 1024) }'
+  /sbin/ifconfig $net_name | grep "TX bytes" | awk ' {print $6}' | cut -d: -f2 | awk -v prev_tx_bytes="$prev_tx_bytes" -v interval="$interval" ' \
+     { printf ("\t%d",  ((($1-prev_tx_bytes)/interval)*8) / 1024 ) }'
+else 
+  printf "\t---\t---"
+fi
+
+
+if [ $real_net -eq 1 ]
+then
+  prev_rx_bytes=`/sbin/ifconfig $net_name | grep "RX bytes" | cut -d: -f2 | awk  '{ printf $1 }'`
+  prev_tx_bytes=`/sbin/ifconfig $net_name | grep "TX bytes" | awk ' {print $6}' | cut -d: -f2 | awk  '{ printf $1 }'`
+fi
+
+if [ $read_rep -eq 1 ]
+then
+   nodetool -h localhost -p 7501 tpstats | awk  -v prev_read_repair="$prev_read_repair" ' \
+   /ReadRepairStage/ {printf ("\t %d",$4-prev_read_repair);print $4 > "/tmp/read_repair" } '
+
+   prev_read_repair=`cat /tmp/read_repair`
+fi
+
+# Calculate percentiles
+if [ $percentile -eq 1 ]
+then
+   nodetool -h localhost -p 7501 cfhistograms $keyspace $columnfamily > /tmp/histo
+   tot_writes=`cat /tmp/histo  | awk ' BEGIN{tot_writes=0} 
+        NF==6 {if ($1 != "Offset") {tot_writes += $3}}
+         NF==5 {if ($1 != "Offset") {tot_writes += $2}}
+          END{print tot_writes} '`
+   tot_reads=`cat /tmp/histo  | awk ' BEGIN{tot_reads=0} 
+        NF==6 {if ($1 != "Offset") {tot_reads += $4}}
+        NF==5 {if ($1 != "Offset") {tot_reads += $3}}
+          END{print tot_reads} '`
+   tot_writes_99=$(expr $tot_writes \* 99)
+   tot_writes_99=$(expr $tot_writes_99 / 100)
+   tot_writes_95=$(expr $tot_writes \* 95)
+   tot_writes_95=$(expr $tot_writes_95 / 100)
+   tot_reads_99=$(expr $tot_reads \* 99)
+   tot_reads_99=$(expr $tot_reads_99 / 100)
+   tot_reads_95=$(expr $tot_reads \* 95)
+   tot_reads_95=$(expr $tot_reads_95 / 100)
+   cat /tmp/histo  | awk -v comparitor="$tot_reads_99" ' BEGIN{val_99 = 0;found=0}
+              NF==6 {if ($1 != Offset) {val_99 +=$4;if ((val_99 > comparitor)&&(found==0)){printf"\t99th %6.3f ms",$1/1000;found=1}}}
+              NF==5 {if ($1 != Offset) {val_99 +=$3;if ((val_99 > comparitor)&&(found==0)){printf"\t99th %6.3f ms",$1/1000;found=1}}}
+              END{if (found==0) {printf"\t99th 0.00 ms"}}'
+
+   cat /tmp/histo  | awk -v comparitor="$tot_reads_95" ' BEGIN{val_99 = 0;found=0}
+              NF==6 {if ($1 != Offset) {val_99 +=$4;if ((val_99 > comparitor)&&(found==0)){printf"\t95th %6.3f ms",$1/1000;found=1}}}
+              NF==5 {if ($1 != Offset) {val_99 +=$3;if ((val_99 > comparitor)&&(found==0)){printf"\t95th %6.3f ms",$1/1000;found=1}}}
+              END{if (found==0) {printf"\t95th 0.00 ms"}}'
+
+   cat /tmp/histo  | awk -v comparitor="$tot_writes_99" ' BEGIN{val_99 = 0;found=0}
+              NF==6 {if ($1 != Offset) {val_99 +=$3;if ((val_99 > comparitor)&&(found==0)){printf"\t99th %6.3f ms",$1/1000;found=1}}}
+              NF==5 {if ($1 != Offset) {val_99 +=$2;if ((val_99 > comparitor)&&(found==0)){printf"\t99th %6.3f ms",$1/1000;found=1}}}
+              END{if (found==0) {printf"\t99th 0.00 ms"}}'
+
+   cat /tmp/histo  | awk -v comparitor="$tot_writes_95" ' BEGIN{val_99 = 0;found=0}
+              NF==6 {if ($1 != Offset) {val_99 +=$3;if ((val_99 > comparitor)&&(found==0)){printf"\t95th %6.3f ms",$1/1000;found=1}}}
+              NF==5 {if ($1 != Offset) {val_99 +=$2;if ((val_99 > comparitor)&&(found==0)){printf"\t95th %6.3f ms",$1/1000;found=1}}}
+              END{if (found==0) {printf"\t95th 0.00 ms"}}'
+
+fi
+
+if [ $compact -eq 1 ]
+then
+   nodetool -h localhost -p 7501 compactionstats | awk ' \
+     /pending/ {printf "\tPen/%d",$3}
+     /Minor/ {printf "\tMin/%d%",$6}
+     /Major/ {printf "\tMaj/%d%",$6}
+     /Validation/ {printf "\tVal/%d%",$6} '
+fi
+printf "\n"
+
+else
+printf "<Nodetool not responding>\n"
+fi
+
+# This acts as the sleep as well
+iostat -tmx $interval 2 > /tmp/ios-temp 
+#sleep $1
+
+this_sample=$(expr $this_sample + 1)
+done
+
+
