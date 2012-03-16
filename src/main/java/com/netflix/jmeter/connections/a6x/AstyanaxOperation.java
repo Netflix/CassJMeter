@@ -43,7 +43,7 @@ public class AstyanaxOperation implements Operation
 
         public AstyanaxResponseData(String response, int size, OperationResult<?> result, Object key, Object cn, Object value)
         {
-            super(response, size, EXECUTED_ON + result != null ? result.getHost().getHostName() : "", result != null ? result.getLatency(TimeUnit.MILLISECONDS) : 0, key, cn, value);
+            super(response, size, EXECUTED_ON + (result != null ? result.getHost().getHostName() : ""), (result != null ? result.getLatency(TimeUnit.MILLISECONDS) : 0), key, cn, value);
         }
         
         public AstyanaxResponseData(String response, int size, OperationResult<?> result, Object key, Map<?, ?> kv)
