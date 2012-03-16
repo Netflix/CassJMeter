@@ -294,9 +294,9 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         private static void appendKeyValue(StringBuffer buff, Object cn, Object value)
         {
             if (cn != null)
-                buff.append(COLUMN_NAME).append(cn).append(SystemUtils.NEW_LINE);
+                buff.append(COLUMN_NAME).append(null == cn ? "" :cn).append(SystemUtils.NEW_LINE);
             if (value != null)
-                buff.append(COLUMN_VALUE).append(value).append(SystemUtils.NEW_LINE);
+                buff.append(COLUMN_VALUE).append(null == value ? "" :value).append(SystemUtils.NEW_LINE);
         }
     }
 
