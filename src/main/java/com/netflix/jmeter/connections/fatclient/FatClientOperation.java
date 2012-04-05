@@ -30,9 +30,9 @@ public class FatClientOperation extends ThriftOperation
     private String cf;
     private String ks;
 
-    public FatClientOperation(String writeConsistency, String readConsistency, String ks, String cf)
+    public FatClientOperation(String writeConsistency, String readConsistency, String ks, String cf, boolean isCounter)
     {
-        super(null, writeConsistency, readConsistency, cf);
+        super(null, writeConsistency, readConsistency, cf, isCounter);
         this.cf = cf;
         this.ks = ks;
     }
