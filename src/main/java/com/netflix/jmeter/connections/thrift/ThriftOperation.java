@@ -6,9 +6,11 @@ import java.util.Map;
 
 import org.apache.cassandra.thrift.ColumnOrSuperColumn;
 import org.apache.cassandra.thrift.ConsistencyLevel;
+import org.apache.cassandra.thrift.CounterColumn;
 import org.apache.cassandra.thrift.NotFoundException;
 import org.apache.cassandra.utils.Pair;
 
+import com.google.common.collect.Lists;
 import com.netflix.astyanax.serializers.AbstractSerializer;
 import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.Operation;
@@ -25,13 +27,15 @@ public class ThriftOperation implements Operation
     protected AbstractSerializer valser;
     protected AbstractSerializer kser;
     private CClient client;
+    private boolean isCounter;
 
-    public ThriftOperation(CClient client, String writeConsistency, String readConsistency, String cfName)
+    public ThriftOperation(CClient client, String writeConsistency, String readConsistency, String cfName, boolean isCounter)
     {
         this.client = client;
         this.wConsistecy = ConsistencyLevel.valueOf(writeConsistency);
         this.rConsistecy = ConsistencyLevel.valueOf(readConsistency);
         this.cfName = cfName;
+        this.isCounter = isCounter;
     }
 
     @Override
@@ -47,10 +51,17 @@ public class ThriftOperation implements Operation
     {
         ByteBuffer rKey = kser.toByteBuffer(key);
         ByteBuffer name = colser.toByteBuffer(colName);
-        ByteBuffer val = valser.toByteBuffer(value);
         try
         {
-            new Writer(client, wConsistecy, cfName).insert(rKey, name, val);
+            if (isCounter)
+            {
+                new Counter(client, wConsistecy, cfName).add(rKey, Lists.newArrayList(new CounterColumn(name, (Long) value)));
+            }
+            else
+            {
+                ByteBuffer val = valser.toByteBuffer(value);
+                new Writer(client, wConsistecy, cfName).insert(rKey, name, val);
+            }
         }
         catch (Exception e)
         {
@@ -62,16 +73,31 @@ public class ThriftOperation implements Operation
     @Override
     public ResponseData batchMutate(Object key, Map<?, ?> nv) throws OperationException
     {
-        Writer writer = new Writer(client, wConsistecy, cfName);
+        ByteBuffer rKey = kser.toByteBuffer(key);
         try
         {
-            for (Map.Entry<?, ?> entity : nv.entrySet())
+            if (isCounter)
             {
-                ByteBuffer name = colser.toByteBuffer(entity.getKey());
-                ByteBuffer value = valser.toByteBuffer(entity.getValue());
-                writer.prepareAdd(name, value);
+                Counter counter = new Counter(client, wConsistecy, cfName);
+                List<CounterColumn> columns = Lists.newArrayList();
+                for (Map.Entry<?, ?> entity : nv.entrySet())
+                {
+                    ByteBuffer name = colser.toByteBuffer(entity.getKey());
+                    columns.add(new CounterColumn(name, (Long) entity.getValue()));
+                }
+                counter.add(rKey, columns);
             }
-            writer.insert(kser.toByteBuffer(key));
+            else
+            {
+                Writer writer = new Writer(client, wConsistecy, cfName);
+                for (Map.Entry<?, ?> entity : nv.entrySet())
+                {
+                    ByteBuffer name = colser.toByteBuffer(entity.getKey());
+                    ByteBuffer value = valser.toByteBuffer(entity.getValue());
+                    writer.prepareAdd(name, value);
+                }
+                writer.insert(rKey);
+        }
         }
         catch (Exception e)
         {

@@ -40,7 +40,8 @@ public class ThriftConnection extends Connection
         return new ThriftOperation(clients.get(), 
                 Properties.instance.cassandra.getWriteConsistency(), 
                 Properties.instance.cassandra.getReadConsistency(),
-                cfName);
+                cfName, 
+                iscounter);
     }
 
     @Override
