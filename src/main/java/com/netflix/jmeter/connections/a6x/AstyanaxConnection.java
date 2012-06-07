@@ -78,6 +78,7 @@ public class AstyanaxConnection extends Connection
                 String maxConnection = com.netflix.jmeter.properties.Properties.instance.cassandra.getMaxConnsPerHost();
                 ConnectionPoolConfigurationImpl poolConfig = new ConnectionPoolConfigurationImpl(getClusterName()).setPort(port);
                 poolConfig.setMaxConnsPerHost(Integer.parseInt(maxConnection));
+                poolConfig.setMaxBlockedThreadsPerHost(Integer.parseInt(maxConnection));
                 poolConfig.setSeeds(StringUtils.join(endpoints, ":" + port + ","));
                 poolConfig.setLatencyScoreStrategy(latencyScoreStrategy);
                 
@@ -91,7 +92,7 @@ public class AstyanaxConnection extends Connection
                 builder.withConnectionPoolConfiguration(poolConfig);
                 builder.withConnectionPoolMonitor(connectionPoolMonitor);
                 builder.withConnectionPoolMonitor(new CountingConnectionPoolMonitor());
-
+                
                 AstyanaxContext<Keyspace> context = builder.buildKeyspace(ThriftFamilyFactory.getInstance());
                 context.start();
                 keyspace = context.getEntity();
