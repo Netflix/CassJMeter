@@ -91,4 +91,10 @@ public class FatClientConnection extends Connection
     {
         return "Live Nodes: " + StringUtils.join(StorageService.instance.getLiveNodes(), ",");
     }
+
+    @Override
+    public void shutdown()
+    {
+        StorageService.instance.stopClient();
+    }
 }

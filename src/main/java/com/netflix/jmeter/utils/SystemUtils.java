@@ -2,8 +2,6 @@ package com.netflix.jmeter.utils;
 
 import java.nio.ByteBuffer;
 
-import org.apache.cassandra.utils.Hex;
-
 import com.netflix.astyanax.serializers.AbstractSerializer;
 import com.netflix.astyanax.serializers.BytesArraySerializer;
 

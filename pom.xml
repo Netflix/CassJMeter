@@ -19,16 +19,6 @@
 			<version>2.6</version>
 		</dependency>
 		<dependency>
-			<groupId>org.apache.cassandra</groupId>
-			<artifactId>cassandra-all</artifactId>
-			<version>1.0.7</version>
-		</dependency>
-		<dependency>
-			<groupId>com.netflix.astyanax</groupId>
-			<artifactId>astyanax</artifactId>
-			<version>0.8.9</version>
-		</dependency>
-		<dependency>
 			<groupId>me.prettyprint</groupId>
 			<artifactId>hector-core</artifactId>
 			<version>1.0-3</version>
@@ -37,6 +27,11 @@
 			<groupId>com.netflix.servo</groupId>
 			<artifactId>servo-core</artifactId>
 			<version>0.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.netflix.astyanax</groupId>
+			<artifactId>astyanax</artifactId>
+			<version>1.0.4</version>
 		</dependency>
 	</dependencies>
 	<build>

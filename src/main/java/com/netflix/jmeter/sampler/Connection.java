@@ -97,7 +97,7 @@ public abstract class Connection
             List<TokenRange> lt = client.describe_ring(getKeyspaceName());
             Set<String> temp = Sets.newHashSet();
             for (TokenRange range : lt)
-                temp.addAll(range.rpc_endpoints);
+                temp.addAll(range.endpoints);
             endpoints = temp;
             // TODO: filter out the nodes in the other region.
             client.socket.close();
@@ -120,7 +120,7 @@ public abstract class Connection
             {
                 connection = FBUtilities.construct(Properties.instance.cassandra.getClientType(), "Creating Connection");
                 // Log the metrics for troubleshooting. 
-                new Thread()
+                Thread t = new Thread()
                 {
                     @Override
                     public void run()
@@ -138,7 +138,9 @@ public abstract class Connection
                             }
                         }
                     }
-                }.start();
+                };
+                t.setDaemon(true);
+                t.start();
                 return connection;
             }
             catch (Exception e)
@@ -166,4 +168,6 @@ public abstract class Connection
     public abstract Operation newOperation(String columnName, boolean isCounter);
     
     public abstract String logConnections();
+
+    public abstract void shutdown();
 }

@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import org.apache.cassandra.utils.Hex;
 import org.apache.jmeter.samplers.Entry;
 import org.apache.jmeter.samplers.SampleResult;
 
@@ -25,6 +24,7 @@ import com.netflix.astyanax.serializers.LongSerializer;
 import com.netflix.astyanax.serializers.ShortSerializer;
 import com.netflix.astyanax.serializers.StringSerializer;
 import com.netflix.astyanax.serializers.UUIDSerializer;
+import com.netflix.jmeter.utils.Hex;
 import com.netflix.jmeter.utils.SystemUtils;
 
 public abstract class AbstractSampler extends org.apache.jmeter.samplers.AbstractSampler

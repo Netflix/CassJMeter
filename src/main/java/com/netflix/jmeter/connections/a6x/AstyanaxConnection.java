@@ -17,8 +17,6 @@ import com.netflix.astyanax.connectionpool.NodeDiscoveryType;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolConfigurationImpl;
 import com.netflix.astyanax.connectionpool.impl.ConnectionPoolType;
 import com.netflix.astyanax.connectionpool.impl.CountingConnectionPoolMonitor;
-//import com.netflix.astyanax.connectionpool.impl.Slf4jConnectionPoolMonitorImpl;
-import com.netflix.astyanax.connectionpool.impl.SmaLatencyScoreStrategyImpl;
 import com.netflix.astyanax.impl.AstyanaxConfigurationImpl;
 import com.netflix.astyanax.model.ConsistencyLevel;
 import com.netflix.astyanax.shallows.EmptyLatencyScoreStrategyImpl;
@@ -32,8 +30,7 @@ public class AstyanaxConnection extends Connection
     public static final AstyanaxConnection instance = new AstyanaxConnection();
     public Properties config = new Properties();
     private Keyspace keyspace;
-    //private ConnectionPoolMonitor connectionPoolMonitor = new Slf4jConnectionPoolMonitorImpl();;
-    private ConnectionPoolMonitor connectionPoolMonitor = new CountingConnectionPoolMonitor();
+    private AstyanaxContext<Keyspace> context;
 
     public Keyspace keyspace()
     {
@@ -80,9 +77,10 @@ public class AstyanaxConnection extends Connection
                 poolConfig.setMaxConnsPerHost(Integer.parseInt(maxConnection));
                 poolConfig.setSeeds(StringUtils.join(endpoints, ":" + port + ","));
                 poolConfig.setLatencyScoreStrategy(latencyScoreStrategy);
-                
+
                 logger.info("ConnectionPoolConfiguration: " + poolConfig.toString());
-                
+
+                ConnectionPoolMonitor connectionPoolMonitor = new CountingConnectionPoolMonitor();
                 // set this as field for logging purpose only.
                 Builder builder = new AstyanaxContext.Builder();
                 builder.forCluster(getClusterName());
@@ -92,7 +90,7 @@ public class AstyanaxConnection extends Connection
                 builder.withConnectionPoolMonitor(connectionPoolMonitor);
                 builder.withConnectionPoolMonitor(new CountingConnectionPoolMonitor());
 
-                AstyanaxContext<Keyspace> context = builder.buildKeyspace(ThriftFamilyFactory.getInstance());
+                context = builder.buildKeyspace(ThriftFamilyFactory.getInstance());
                 context.start();
                 keyspace = context.getEntity();
                 return keyspace;
@@ -112,6 +110,16 @@ public class AstyanaxConnection extends Connection
     @Override
     public String logConnections()
     {
-        return connectionPoolMonitor == null ? "" : connectionPoolMonitor.toString();
+        return context == null ? "" : context.getConnectionPoolMonitor().toString();
+    }
+
+    @Override
+    public void shutdown()
+    {
+        if (context == null)
+            return;
+        context.shutdown();
+        context = null;
+        keyspace = null;
     }
 }

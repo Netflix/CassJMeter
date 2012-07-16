@@ -49,4 +49,10 @@ public class ThriftConnection extends Connection
     {
         return "Nodes in the list: " + StringUtils.join(endpoints, ",");
     }
+
+    @Override
+    public void shutdown()
+    {
+        // do nothing.
+    }
 }

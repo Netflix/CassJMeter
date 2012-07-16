@@ -21,6 +21,7 @@ import org.apache.jmeter.samplers.gui.AbstractSamplerGui;
 import org.apache.jmeter.testelement.TestElement;
 
 import com.netflix.jmeter.sampler.AbstractSampler;
+import com.netflix.jmeter.sampler.Connection;
 
 public abstract class AbstractGUI extends AbstractSamplerGui
 {
@@ -65,6 +66,7 @@ public abstract class AbstractGUI extends AbstractSamplerGui
         KSERIALIZER.setSelectedItem("StringSerializer");
         COLUMN_FAMILY.setText("Standard3");
         initFields();
+        Connection.connection.shutdown();
     }
 
     @Override
