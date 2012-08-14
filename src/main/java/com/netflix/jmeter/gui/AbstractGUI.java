@@ -66,7 +66,10 @@ public abstract class AbstractGUI extends AbstractSamplerGui
         KSERIALIZER.setSelectedItem("StringSerializer");
         COLUMN_FAMILY.setText("Standard3");
         initFields();
-        Connection.connection.shutdown();
+        if (Connection.connection != null)
+        {
+        	Connection.getInstance().shutdown();
+        }
     }
 
     @Override
