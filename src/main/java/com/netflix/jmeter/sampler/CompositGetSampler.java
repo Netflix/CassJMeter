@@ -6,7 +6,7 @@ public class CompositGetSampler extends AbstractSampler
 
     public ResponseData execute() throws OperationException
     {
-        Operation ops = Connection.getInstace().newOperation(getColumnFamily(), false);
+        Operation ops = Connection.getInstance().newOperation(getColumnFamily(), false);
         setSerializers(ops);
         return ops.getComposite(getProperty(KEY).getStringValue(), getProperty(COLUMN_NAME).getStringValue());
     }

@@ -10,7 +10,7 @@ public class GetRangeSliceSampler extends AbstractSampler
 
     public ResponseData execute() throws OperationException
     {
-        Operation ops = Connection.getInstace().newOperation(getColumnFamily(), false);
+        Operation ops = Connection.getInstance().newOperation(getColumnFamily(), false);
         setSerializers(ops);
         return ops.rangeSlice(getKey(), getStartName(), getEndName(), isReverse(), getCount());
     }

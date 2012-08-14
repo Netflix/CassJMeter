@@ -9,7 +9,7 @@ public class PutSampler extends AbstractSampler
 
     public ResponseData execute() throws OperationException
     {
-        Operation ops = Connection.getInstace().newOperation(getColumnFamily(), isCounter());
+        Operation ops = Connection.getInstance().newOperation(getColumnFamily(), isCounter());
         setSerializers(ops);
         return ops.put(getKey(), getColumnName(), getValue());
     }
