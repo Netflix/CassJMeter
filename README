@@ -1,14 +1,11 @@
 DESCRIPTION:
-Cassandra JMeter plugin supports all the jmeter functions and variable hence making it a right fit to generate data into cassandra. You can also validate the data and measure performance/throuhput of a cassandra cluster.
+Cassandra JMeter plugin supports all the jmeter functions and variables, hence making it a right fit to generate data into cassandra. You can also validate the data and measure performance/throuhput of a cassandra cluster.
 
 INSTALLATION:
 https://github.com/Netflix/CassJMeter/wiki/Installation-Instruction
 
 DETAILS:
 https://github.com/Netflix/CassJMeter/wiki
-
-AUTHOR:
-Vijay Parthasarathy (vparthasarathy@netflix.com)
 
 LICENSE:
 
