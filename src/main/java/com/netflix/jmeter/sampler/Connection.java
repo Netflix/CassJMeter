@@ -108,7 +108,7 @@ public abstract class Connection
         }
     }
 
-    public static Connection getInstace()
+    public static Connection getInstance()
     {
         if (connection != null)
             return connection;
