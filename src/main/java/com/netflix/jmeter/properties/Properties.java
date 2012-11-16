@@ -10,7 +10,7 @@ import com.netflix.jmeter.connections.a6x.AstyanaxConnection;
 
 public class Properties
 {
-    private static final Logger logger = LoggerFactory.getLogger(AstyanaxConnection.class);
+    private static final Logger logger = LoggerFactory.getLogger(Properties.class);
     public static final Properties instance = new Properties();
     public CassandraProperties cassandra;
     public FatclientProperties fatclient;

@@ -49,7 +49,7 @@ public abstract class Connection
             temp.add(hp[0]);
             port = Integer.parseInt(hp[1]);
         }
-        assert temp.size() == 0;
+        assert temp.size() > 0;
         endpoints = temp;
     }
 
