@@ -299,7 +299,7 @@ sample_count=100000
 port=7501
 
 
-while getopts “hexprstjlm:i:k:c:n:d:o:f:” OPTION
+while getopts “hexprstjl:m:i:k:c:n:d:o:f:” OPTION
 do
      case $OPTION in
          h)
