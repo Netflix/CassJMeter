@@ -217,8 +217,8 @@ public abstract class AbstractSampler extends org.apache.jmeter.samplers.Abstrac
         finally
         {
             sr.setResponseData(message);
-            sr.sampleEnd();
             long latency = System.currentTimeMillis() - start;
+            sr.sampleEnd();
             sr.setLatency(latency);
             /*
              * A6x reports the latency via thrift. the following logic will
