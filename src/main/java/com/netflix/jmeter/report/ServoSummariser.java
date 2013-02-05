@@ -3,13 +3,13 @@ package com.netflix.jmeter.report;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
+import com.netflix.servo.monitor.Monitors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.netflix.servo.DefaultMonitorRegistry;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.annotations.Monitor;
-import com.netflix.servo.annotations.MonitorId;
 import com.netflix.servo.publish.BasicMetricFilter;
 import com.netflix.servo.publish.CounterToRateMetricTransform;
 import com.netflix.servo.publish.FileMetricObserver;
@@ -50,15 +50,14 @@ public class ServoSummariser extends AbstractSummariser
     @Override
     protected AbstractRunningSampleWrapper newRunningSampleWrapper(String label)
     {
-        return new EpicRunningSampleWrapper(label);
+        return new ServoRunningSampleWrapper(label);
     }
 
-    public static class EpicRunningSampleWrapper extends AbstractRunningSampleWrapper
+    public static class ServoRunningSampleWrapper extends AbstractRunningSampleWrapper
     {
-        @MonitorId
         public final String name;
 
-        public EpicRunningSampleWrapper(String name)
+        public ServoRunningSampleWrapper(String name)
         {
             super(name);
             this.name = ("JMeter_" + name).replace(" ", "_");
@@ -133,13 +132,13 @@ public class ServoSummariser extends AbstractSummariser
         @Override
         public void start()
         {
-            DefaultMonitorRegistry.getInstance().registerObject(this);
+            Monitors.registerObject(name, this);
         }
 
         @Override
         public void shutdown()
         {
-            DefaultMonitorRegistry.getInstance().unRegisterObject(this);
+            Monitors.unregisterObject(name, this);
         }
     }
 }
