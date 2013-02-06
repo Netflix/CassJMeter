@@ -9,8 +9,8 @@ authority: org.apache.cassandra.auth.AllowAllAuthority
 partitioner: org.apache.cassandra.dht.RandomPartitioner
 data_file_directories:
 - /mnt/data/cassandra070/data
-commitlog_directory: /mnt/data/cassandra070/commitlog
-saved_caches_directory: /mnt/data/cassandra070/saved_caches
+commitlog_directory: /var/lib/cassandra/commitlog
+saved_caches_directory: /var/lib/cassandra/saved_caches
 commitlog_rotation_threshold_in_mb: 128
 commitlog_sync: periodic
 commitlog_sync_period_in_ms: 10000
@@ -52,7 +52,7 @@ request_scheduler: org.apache.cassandra.scheduler.NoScheduler
 index_interval: 128
 encryption_options:
   internode_encryption: none
-  keystore: /apps/nfcassandra_server/conf/cassandra-app.jks
-  keystore_password: xyz
-  truststore: /apps/nfcassandra_server/conf/cassandra-app.truststore
-  truststore_password: netflix
+  keystore: conf/.keystore
+  keystore_password: cassandra
+  truststore: conf/.truststore
+  truststore_password: cassandra
