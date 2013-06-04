@@ -99,13 +99,13 @@ public class DataStaxClientOperation implements Operation {
 		String clusteredKeyValue = colList[1];
 		String colName = colList[2];
 
-		ResultSet rs = session.execute(QueryBuilder.select(colName).from(cfName).where(QueryBuilder.eq(partitionKey, partitionValue)).and(QueryBuilder.eq(clusteredKey, clusteredKeyValue))
-				.enableTracing());
-		Row row = rs.one();
+		ResultSet rs = session.execute(QueryBuilder.select(colName).from(cfName).where(QueryBuilder.eq(partitionKey, partitionValue)).limit(1000000).enableTracing());
+		// .and(QueryBuilder.lte(clusteredKey, clusteredKeyValue)).and(QueryBuilder.gt(clusteredKey, clusteredKeyValue))
 
-		String value = SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe(colName));
-		response.append(value);
-
+		for (Row row : rs) {
+			String value = row != null ? SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe(colName)) : null;
+			response.append(value + "\n");
+		}
 		return new DataStaxClientResponseData(response.toString(), 0, "", TimeUnit.MILLISECONDS.convert(rs.getExecutionInfo().getQueryTrace().getDurationMicros(), TimeUnit.MICROSECONDS), key,
 				compositeColName, null);
 	}
