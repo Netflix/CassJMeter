@@ -61,5 +61,4 @@ public class DataStaxClientConnection extends Connection {
 		if (cluster != null)
 			cluster.shutdown();
 	}
-
 }

@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.TableMetadata;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
 import com.netflix.astyanax.connectionpool.OperationResult;
 import com.netflix.astyanax.model.ColumnFamily;
@@ -29,11 +30,13 @@ public class DataStaxClientOperation implements Operation {
 		}
 
 		public DataStaxClientResponseData(String response, int size, OperationResult<?> result, Object key, Object cn, Object value) {
-			super(response, size, EXECUTED_ON + (result != null ? result.getHost().getHostName() : ""), (result != null ? result.getLatency(TimeUnit.MILLISECONDS) : 0), key, cn, value);
+			super(response, size, EXECUTED_ON + (result != null ? result.getHost().getHostName() : ""), (result != null ? result
+					.getLatency(TimeUnit.MILLISECONDS) : 0), key, cn, value);
 		}
 
 		public DataStaxClientResponseData(String response, int size, OperationResult<?> result, Object key, Map<?, ?> kv) {
-			super(response, size, (result == null) ? "" : result.getHost().getHostName(), result != null ? result.getLatency(TimeUnit.MILLISECONDS) : 0, key, kv);
+			super(response, size, (result == null) ? "" : result.getHost().getHostName(), result != null ? result.getLatency(TimeUnit.MILLISECONDS)
+					: 0, key, kv);
 		}
 	}
 
@@ -63,8 +66,30 @@ public class DataStaxClientOperation implements Operation {
 
 	@Override
 	public ResponseData get(Object rkey, Object colName) throws OperationException {
-		// TODO Auto-generated method stub
-		return null;
+		StringBuffer response = new StringBuffer();
+		Session session = DataStaxClientConnection.instance.session();
+
+		TableMetadata tm = session.getCluster().getMetadata().getKeyspace(DataStaxClientConnection.instance.getKeyspaceName()).getTable(cfName);
+		String partitionKey = tm.getPartitionKey().get(0).getName();
+		Object partitionValue = rkey;
+
+		ResultSet rs = session.execute(QueryBuilder.select(colName.toString()).from(cfName).where(QueryBuilder.eq(partitionKey, partitionValue))
+				.limit(1000000).enableTracing());
+
+		for (Row row : rs) {
+			if (row != null) {
+				String value;
+				if (colName.toString().equalsIgnoreCase("count(*)"))
+					value = SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe("count"));
+				else
+					value = SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe(colName.toString()));
+
+				response.append(value + "\n");
+			}
+		}
+
+		return new DataStaxClientResponseData(response.toString(), 0, "", TimeUnit.MILLISECONDS.convert(rs.getExecutionInfo().getQueryTrace()
+				.getDurationMicros(), TimeUnit.MICROSECONDS), rkey, colName, null);
 	}
 
 	@Override
@@ -90,24 +115,27 @@ public class DataStaxClientOperation implements Operation {
 		StringBuffer response = new StringBuffer();
 		Session session = DataStaxClientConnection.instance.session();
 
-		String[] partitionKeyList = key.split(":");
-		String partitionKey = partitionKeyList[0];
-		String partitionValue = partitionKeyList[1];
+		TableMetadata tm = session.getCluster().getMetadata().getKeyspace(DataStaxClientConnection.instance.getKeyspaceName()).getTable(cfName);
+		String partitionKey = tm.getPartitionKey().get(0).getName();
+		Object partitionValue = key;
 
 		String[] colList = compositeColName.split(":");
 		String clusteredKey = colList[0];
-		String clusteredKeyValue = colList[1];
+		String clusteredValue = colList[1];
 		String colName = colList[2];
 
-		ResultSet rs = session.execute(QueryBuilder.select(colName).from(cfName).where(QueryBuilder.eq(partitionKey, partitionValue)).limit(1000000).enableTracing());
-		// .and(QueryBuilder.lte(clusteredKey, clusteredKeyValue)).and(QueryBuilder.gt(clusteredKey, clusteredKeyValue))
+		ResultSet rs = session.execute(QueryBuilder.select(colName).from(cfName).where(QueryBuilder.eq(partitionKey, partitionValue))
+				.and(QueryBuilder.eq(clusteredKey, clusteredValue)).limit(1000000).enableTracing());
 
 		for (Row row : rs) {
-			String value = row != null ? SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe(colName)) : null;
-			response.append(value + "\n");
+			if (row != null) {
+				String value = SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe(colName));
+				response.append(value + "\n");
+			}
 		}
-		return new DataStaxClientResponseData(response.toString(), 0, "", TimeUnit.MILLISECONDS.convert(rs.getExecutionInfo().getQueryTrace().getDurationMicros(), TimeUnit.MICROSECONDS), key,
-				compositeColName, null);
+
+		return new DataStaxClientResponseData(response.toString(), 0, "", TimeUnit.MILLISECONDS.convert(rs.getExecutionInfo().getQueryTrace()
+				.getDurationMicros(), TimeUnit.MICROSECONDS), key, compositeColName, null);
 	}
 
 	@Override
