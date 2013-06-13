@@ -3,8 +3,11 @@ package com.matriks.jmeter.connections.datastaxclient;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
-import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.Query;
+import com.datastax.driver.core.ResultSetFuture;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.TableMetadata;
@@ -15,7 +18,6 @@ import com.netflix.astyanax.serializers.AbstractSerializer;
 import com.netflix.jmeter.sampler.AbstractSampler.ResponseData;
 import com.netflix.jmeter.sampler.Operation;
 import com.netflix.jmeter.sampler.OperationException;
-import com.netflix.jmeter.utils.SystemUtils;
 
 public class DataStaxClientOperation implements Operation {
 	private AbstractSerializer valueSerializer;
@@ -66,30 +68,26 @@ public class DataStaxClientOperation implements Operation {
 
 	@Override
 	public ResponseData get(Object rkey, Object colName) throws OperationException {
-		StringBuffer response = new StringBuffer();
 		Session session = DataStaxClientConnection.instance.session();
-
-		TableMetadata tm = session.getCluster().getMetadata().getKeyspace(DataStaxClientConnection.instance.getKeyspaceName()).getTable(cfName);
+		TableMetadata tm = DataStaxClientConnection.instance.getKeyspaceMetadata().getTable(cfName);
 		String partitionKey = tm.getPartitionKey().get(0).getName();
-		Object partitionValue = rkey;
+		
+		Query query = QueryBuilder.select(colName.toString()).from(cfName).where(QueryBuilder.eq(partitionKey, rkey)).limit(1000000)
+				.setConsistencyLevel(ConsistencyLevel.valueOf(com.netflix.jmeter.properties.Properties.instance.cassandra.getReadConsistency()));
+		
+		ResultSetFuture rs = session.executeAsync(query);
 
-		ResultSet rs = session.execute(QueryBuilder.select(colName.toString()).from(cfName).where(QueryBuilder.eq(partitionKey, partitionValue))
-				.limit(1000000).enableTracing());
-
-		for (Row row : rs) {
-			if (row != null) {
-				String value;
-				if (colName.toString().equalsIgnoreCase("count(*)"))
-					value = SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe("count"));
-				else
-					value = SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe(colName.toString()));
-
-				response.append(value + "\n");
-			}
+		int size = 0;
+		try {
+			Row row = rs.getUninterruptibly(1000000, TimeUnit.MILLISECONDS).one();
+			size = row != null ? row.getBytesUnsafe(colName.toString()).capacity() : 0;
+		}
+		catch (TimeoutException e) {
+			e.printStackTrace();
+			throw new OperationException(e);
 		}
 
-		return new DataStaxClientResponseData(response.toString(), 0, "", TimeUnit.MILLISECONDS.convert(rs.getExecutionInfo().getQueryTrace()
-				.getDurationMicros(), TimeUnit.MICROSECONDS), rkey, colName, null);
+		return new DataStaxClientResponseData("", size, "", 0, rkey, colName, null);
 	}
 
 	@Override
@@ -112,10 +110,9 @@ public class DataStaxClientOperation implements Operation {
 
 	@Override
 	public ResponseData getComposite(String key, String compositeColName) throws OperationException {
-		StringBuffer response = new StringBuffer();
 		Session session = DataStaxClientConnection.instance.session();
 
-		TableMetadata tm = session.getCluster().getMetadata().getKeyspace(DataStaxClientConnection.instance.getKeyspaceName()).getTable(cfName);
+		TableMetadata tm = DataStaxClientConnection.instance.getKeyspaceMetadata().getTable(cfName);
 		String partitionKey = tm.getPartitionKey().get(0).getName();
 		Object partitionValue = key;
 
@@ -123,19 +120,27 @@ public class DataStaxClientOperation implements Operation {
 		String clusteredKey = colList[0];
 		String clusteredValue = colList[1];
 		String colName = colList[2];
-
-		ResultSet rs = session.execute(QueryBuilder.select(colName).from(cfName).where(QueryBuilder.eq(partitionKey, partitionValue))
-				.and(QueryBuilder.eq(clusteredKey, clusteredValue)).limit(1000000).enableTracing());
-
-		for (Row row : rs) {
-			if (row != null) {
-				String value = SystemUtils.convertToString(valueSerializer, row.getBytesUnsafe(colName));
-				response.append(value + "\n");
-			}
+		
+		Long start = System.nanoTime();
+		
+		ResultSetFuture rs = session.executeAsync(QueryBuilder.select(colName).from(cfName).where(QueryBuilder.eq(partitionKey, partitionValue))
+				.and(QueryBuilder.eq(clusteredKey, clusteredValue)).limit(1000000));
+		
+		int size = 0;
+		
+		try {
+			Row row = rs.getUninterruptibly(1000000, TimeUnit.MILLISECONDS).one();
+			size = row != null ? row.getBytesUnsafe(colName.toString()).capacity() : 0;
 		}
 
-		return new DataStaxClientResponseData(response.toString(), 0, "", TimeUnit.MILLISECONDS.convert(rs.getExecutionInfo().getQueryTrace()
-				.getDurationMicros(), TimeUnit.MICROSECONDS), key, compositeColName, null);
+		catch (TimeoutException e) {
+			e.printStackTrace();
+			throw new OperationException(e);
+		}
+		
+		Long duration = System.nanoTime() - start;
+		
+		return new DataStaxClientResponseData("", size, "", TimeUnit.MILLISECONDS.convert(duration, TimeUnit.NANOSECONDS), key, compositeColName, null);
 	}
 
 	@Override
